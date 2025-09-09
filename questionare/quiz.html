@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8">
+  <title>Employee Quiz</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Arial', sans-serif; }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #2575fc, #6a11cb);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .quiz-container {
+      background: rgba(255,255,255,0.1);
+      padding: 40px;
+      border-radius: 15px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      width: 600px;
+      backdrop-filter: blur(10px);
+      color: #fff;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 32px;
+      letter-spacing: 2px;
+    }
+
+    .question-card {
+      background: rgba(255,255,255,0.15);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      transition: transform 0.2s;
+    }
+
+    .question-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+
+    .question-text {
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+
+    .options label {
+      display: block;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background-image: linear-gradient(to right, #ff416c, #ff4b2b);
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      transition: 0.3s;
+      margin-top: 20px;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="quiz-container">
+    <h2>Employee Quiz</h2>
+    <form id="quiz-form">
+      <!-- Εδώ θα μπουν οι τυχαίες ερωτήσεις -->
+      <div id="questions-container"></div>
+      <button type="submit">Υποβολή Απαντήσεων</button>
+    </form>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/quiz.js"></script>
+</body>
+</html>
