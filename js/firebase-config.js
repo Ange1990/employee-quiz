@@ -1,6 +1,5 @@
 // js/firebase-config.js
-// --------------------
-// Αντέγραψε εδώ το firebaseConfig που πήρες από το Firebase Console
+
 const firebaseConfig = {
   apiKey: "AIzaSyD_MPxHrzLs2vd677t3Nr8vXKFtQEuLI2g",
   authDomain: "quiz-aa480.firebaseapp.com",
@@ -11,11 +10,9 @@ const firebaseConfig = {
   measurementId: "G-Q3X66T9MJF"
 };
 
-// Αν δεν έχει ήδη γίνει initialize (αποφεύγει το σφάλμα "app already exists")
-if (!firebase.apps || !firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
+// Initialize Firebase μία φορά
+firebase.initializeApp(firebaseConfig);
 
-// Εξάγουμε αντικείμενα που θα χρησιμοποιούν τα υπόλοιπα scripts
+// Κοινά exports για όλα τα scripts
 const auth = firebase.auth();
 const db = firebase.firestore();
