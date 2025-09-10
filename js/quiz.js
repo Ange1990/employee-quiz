@@ -49,9 +49,14 @@ function loadQuestions() {
   }).catch(err => console.error(err));
 }
 
-// Υποβολή & εμφάνιση ολοκληρωμένου τεστ
+// Υποβολή & εμφάνιση ολοκληρωμένου τεστ με confirm και alert
 form.addEventListener("submit", (e) => {
   e.preventDefault();
+
+  // Confirm πριν την υποβολή
+  const confirmSubmit = confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;");
+  if (!confirmSubmit) return; // Αν πατήσει Όχι, ακυρώνουμε
+
   let score = 0;
   let total = 0;
   const resultsHTML = [];
@@ -75,11 +80,13 @@ form.addEventListener("submit", (e) => {
       `);
     });
 
+    // Εμφάνιση αποτελεσμάτων
     container.innerHTML = `
       <h2>Αποτελέσματα: ${score}/${total}</h2>
       ${resultsHTML.join("")}
     `;
 
+    // Αποθήκευση στο Firestore
     const user = auth.currentUser;
     if(user){
       db.collection("results").add({
@@ -88,7 +95,11 @@ form.addEventListener("submit", (e) => {
         score: score,
         total: total,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        alert("Ολοκληρώθηκε η αποστολή απαντήσεων!");
       });
+    } else {
+      alert("Ολοκληρώθηκε η υποβολή απαντήσεων!");
     }
   });
 });
