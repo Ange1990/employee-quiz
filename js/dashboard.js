@@ -1,11 +1,11 @@
 const resultsBody = document.getElementById("results-body");
+const logoutBtn = document.getElementById("logout-btn");
 
 // Έλεγχος αν είναι συνδεδεμένος και CEO
 auth.onAuthStateChanged(user => {
   if (!user) {
     window.location.href = "index.html";
   } else {
-    // Προαιρετικά: Έλεγχος αν user.email είναι το email του CEO
     if (user.email !== "ceo@example.com") {
       alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
       window.location.href = "index.html";
@@ -15,7 +15,13 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-// Φόρτωση όλων των αποτελεσμάτων από Firestore
+// Logout
+logoutBtn.addEventListener("click", () => {
+  auth.signOut().then(() => {
+    window.location.href = "index.html";
+  });
+});
+
 function loadResults() {
   db.collection("results").orderBy("timestamp", "desc").get()
     .then(snapshot => {
