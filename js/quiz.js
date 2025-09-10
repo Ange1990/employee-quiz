@@ -1,93 +1,105 @@
-// js/quiz.js
-
-// Χρησιμοποιούμε το db και auth που ήδη υπάρχουν από firebase-config.js
 const container = document.getElementById("questions-container");
 const form = document.getElementById("quiz-form");
+const userEmailSpan = document.getElementById("user-email");
+const logoutBtn = document.getElementById("logout-btn");
+const timerDiv = document.getElementById("timer");
 
-// ------------------
 // Έλεγχος αν είναι συνδεδεμένος ο χρήστης
-// ------------------
 auth.onAuthStateChanged(user => {
   if (!user) {
-    // Αν δεν είναι συνδεδεμένος → redirect στο login
     window.location.href = "index.html";
   } else {
-    // Φόρτωσε τις ερωτήσεις όταν είναι συνδεδεμένος
+    userEmailSpan.textContent = `Καλώς ήρθες, ${user.email}`;
     loadQuestions();
+    startTimer(30); // 30 λεπτά
   }
 });
 
-// ------------------
+// Logout
+logoutBtn.addEventListener("click", () => {
+  auth.signOut().then(() => {
+    window.location.href = "index.html";
+  });
+});
+
+// Χρονομέτρηση
+function startTimer(minutes) {
+  let time = minutes * 60;
+  const interval = setInterval(() => {
+    const m = Math.floor(time / 60);
+    const s = time % 60;
+    timerDiv.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    time--;
+    if(time < 0){
+      clearInterval(interval);
+      alert("Ο χρόνος τελείωσε!");
+      form.requestSubmit(); // Αυτόματα υποβολή
+    }
+  }, 1000);
+}
+
 // Φόρτωση ερωτήσεων από Firestore
-// ------------------
 function loadQuestions() {
   db.collection("questions").get().then(snapshot => {
-    container.innerHTML = ""; // καθάρισμα container
-
-    console.log("Βρέθηκαν ερωτήσεις:", snapshot.size); // debug
-
+    container.innerHTML = "";
     snapshot.forEach(doc => {
       const data = doc.data();
-      console.log("Ερώτηση:", doc.id, data); // debug
-
-      // Δημιουργία card
       const card = document.createElement("div");
       card.className = "question-card";
 
-      // Ερώτηση
       const qText = document.createElement("div");
       qText.className = "question-text";
       qText.textContent = data.text;
       card.appendChild(qText);
 
-      // Επιλογές
       const optionsDiv = document.createElement("div");
       optionsDiv.className = "options";
 
       data.options.forEach(opt => {
         const label = document.createElement("label");
-        label.innerHTML = `
-          <input type="radio" name="${doc.id}" value="${opt}" />
-          ${opt}
-        `;
+        label.innerHTML = `<input type="radio" name="${doc.id}" value="${opt}" /> ${opt}`;
         optionsDiv.appendChild(label);
       });
 
       card.appendChild(optionsDiv);
       container.appendChild(card);
     });
-  }).catch(err => {
-    console.error("Σφάλμα στο διάβασμα των ερωτήσεων:", err);
-  });
+  }).catch(err => console.error(err));
 }
 
-// ------------------
-// Υποβολή απαντήσεων
-// ------------------
+// Υποβολή & εμφάνιση ολοκληρωμένου τεστ
 form.addEventListener("submit", (e) => {
   e.preventDefault();
-
   let score = 0;
   let total = 0;
+  const resultsHTML = [];
 
   db.collection("questions").get().then(snapshot => {
     snapshot.forEach(doc => {
       const data = doc.data();
       total++;
 
-      // Απάντηση που έδωσε ο χρήστης
       const selected = form.querySelector(`input[name="${doc.id}"]:checked`);
-      if (selected && selected.value === data.correct) {
-        score++;
-      }
+      const answer = selected ? selected.value : "Δεν απαντήθηκε";
+
+      if(answer === data.correct) score++;
+
+      resultsHTML.push(`
+        <div class="question-card">
+          <div class="question-text">${data.text}</div>
+          <div>Η απάντηση σου: <b>${answer}</b></div>
+          <div>Σωστή απάντηση: <b>${data.correct}</b></div>
+        </div>
+      `);
     });
 
-    // Εμφάνιση αποτελέσματος
-    alert(`Το σκορ σου: ${score}/${total}`);
+    container.innerHTML = `
+      <h2>Αποτελέσματα: ${score}/${total}</h2>
+      ${resultsHTML.join("")}
+    `;
 
-    // Αποθήκευση στο Firestore (collection: results)
     const user = auth.currentUser;
-    if (user) {
+    if(user){
       db.collection("results").add({
         uid: user.uid,
         email: user.email,
@@ -96,7 +108,5 @@ form.addEventListener("submit", (e) => {
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
-  }).catch(err => {
-    console.error("Σφάλμα κατά την υποβολή:", err);
   });
 });
