@@ -77,6 +77,11 @@
 </head>
 <body>
   <div class="quiz-container">
+    <div class="quiz-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+  <div id="user-info">Καλώς ήρθες, <span id="user-email"></span></div>
+  <button id="logout-btn" style="padding:6px 12px; border:none; border-radius:5px; cursor:pointer; background:#ff4b2b; color:#fff;">Αποσύνδεση</button>
+</div>
+
     <h2>Employee Quiz</h2>
     <form id="quiz-form">
       <!-- Εδώ θα μπουν οι τυχαίες ερωτήσεις -->
@@ -97,3 +102,4 @@
   <script src="js/quiz.js"></script>
 </body>
 </html>
+
