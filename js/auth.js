@@ -1,8 +1,3 @@
-// js/auth.js
-
-// Παίρνουμε το auth από το firebase-config.js (δεν ξανακάνουμε initialize εδώ)
-const loginForm = document.getElementById('loginForm');
-
 loginForm.addEventListener('submit', (e) => {
   e.preventDefault();
 
@@ -11,8 +6,12 @@ loginForm.addEventListener('submit', (e) => {
 
   auth.signInWithEmailAndPassword(email, password)
     .then(() => {
-      // Επιτυχής σύνδεση → πάμε quiz.html
-      window.location.href = "quiz.html";
+      // Αν είναι ο CEO, πάει στο dashboard, αλλιώς στο quiz
+      if (email === "nafpliotis@sspc.gr") {
+        window.location.href = "dashboard.html";
+      } else {
+        window.location.href = "quiz.html";
+      }
     })
     .catch((error) => {
       alert("Σφάλμα: " + error.message);
