@@ -1,45 +1,38 @@
-const resultsBody = document.getElementById("results-body");
-const logoutBtn = document.getElementById("logout-btn");
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8">
+  <title>CEO Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background:#f0f2f5; }
+    h1 { text-align:center; margin-bottom: 30px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:10px; border:1px solid #ccc; text-align:center; }
+    th { background:#2575fc; color:#fff; }
+    tr:nth-child(even) { background:#e6e6e6; }
+    #logout-btn { margin-bottom:20px; padding:6px 12px; border:none; border-radius:5px; cursor:pointer; background:#ff4b2b; color:#fff; }
+  </style>
+</head>
+<body>
 
-// Έλεγχος αν είναι συνδεδεμένος και CEO
-auth.onAuthStateChanged(user => {
-  if (!user) {
-    window.location.href = "index.html";
-  } else {
-    if (user.email !== "ceo@example.com") {
-      alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
-      window.location.href = "index.html";
-    } else {
-      loadResults();
-    }
-  }
-});
+  <button id="logout-btn">Αποσύνδεση</button>
+  <h1>Employee Quiz Results</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Email Υπαλλήλου</th>
+        <th>Σκορ</th>
+        <th>Σύνολο Ερωτήσεων</th>
+        <th>Ημερομηνία Υποβολής</th>
+      </tr>
+    </thead>
+    <tbody id="results-body"></tbody>
+  </table>
 
-// Logout
-logoutBtn.addEventListener("click", () => {
-  auth.signOut().then(() => {
-    window.location.href = "index.html";
-  });
-});
-
-function loadResults() {
-  db.collection("results").orderBy("timestamp", "desc").get()
-    .then(snapshot => {
-      resultsBody.innerHTML = "";
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        const date = data.timestamp ? data.timestamp.toDate().toLocaleString() : "";
-        resultsBody.innerHTML += `
-          <tr>
-            <td>${data.email}</td>
-            <td>${data.score}</td>
-            <td>${data.total}</td>
-            <td>${date}</td>
-          </tr>
-        `;
-      });
-    })
-    .catch(error => {
-      console.error("Σφάλμα κατά τη φόρτωση αποτελεσμάτων:", error);
-    });
-}
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
