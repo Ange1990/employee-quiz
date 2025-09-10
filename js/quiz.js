@@ -1,9 +1,6 @@
 // js/quiz.js
 
-// Firestore & Auth
-const db = firebase.firestore();
-const auth = firebase.auth();
-
+// Χρησιμοποιούμε το db και auth που ήδη υπάρχουν από firebase-config.js
 const container = document.getElementById("questions-container");
 const form = document.getElementById("quiz-form");
 
@@ -27,8 +24,11 @@ function loadQuestions() {
   db.collection("questions").get().then(snapshot => {
     container.innerHTML = ""; // καθάρισμα container
 
+    console.log("Βρέθηκαν ερωτήσεις:", snapshot.size); // debug
+
     snapshot.forEach(doc => {
       const data = doc.data();
+      console.log("Ερώτηση:", doc.id, data); // debug
 
       // Δημιουργία card
       const card = document.createElement("div");
@@ -56,6 +56,8 @@ function loadQuestions() {
       card.appendChild(optionsDiv);
       container.appendChild(card);
     });
+  }).catch(err => {
+    console.error("Σφάλμα στο διάβασμα των ερωτήσεων:", err);
   });
 }
 
@@ -94,5 +96,7 @@ form.addEventListener("submit", (e) => {
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
+  }).catch(err => {
+    console.error("Σφάλμα κατά την υποβολή:", err);
   });
 });
