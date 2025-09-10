@@ -6,7 +6,7 @@ auth.onAuthStateChanged(user => {
   if (!user) {
     window.location.href = "index.html";
   } else {
-    if (user.email !== "ceo@example.com") {
+if (user.email !== "nafpliotis@sspc.gr") {
       alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
       window.location.href = "index.html";
     } else {
@@ -43,3 +43,4 @@ function loadResults() {
       console.error("Σφάλμα κατά τη φόρτωση αποτελεσμάτων:", error);
     });
 }
+
