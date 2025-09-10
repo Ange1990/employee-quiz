@@ -2,7 +2,6 @@ const container = document.getElementById("questions-container");
 const form = document.getElementById("quiz-form");
 const userEmailSpan = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
-const timerDiv = document.getElementById("timer");
 
 // Έλεγχος αν είναι συνδεδεμένος ο χρήστης
 auth.onAuthStateChanged(user => {
@@ -11,7 +10,6 @@ auth.onAuthStateChanged(user => {
   } else {
     userEmailSpan.textContent = `Καλώς ήρθες, ${user.email}`;
     loadQuestions();
-    startTimer(30); // 30 λεπτά
   }
 });
 
@@ -21,22 +19,6 @@ logoutBtn.addEventListener("click", () => {
     window.location.href = "index.html";
   });
 });
-
-// Χρονομέτρηση
-function startTimer(minutes) {
-  let time = minutes * 60;
-  const interval = setInterval(() => {
-    const m = Math.floor(time / 60);
-    const s = time % 60;
-    timerDiv.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-    time--;
-    if(time < 0){
-      clearInterval(interval);
-      alert("Ο χρόνος τελείωσε!");
-      form.requestSubmit(); // Αυτόματα υποβολή
-    }
-  }, 1000);
-}
 
 // Φόρτωση ερωτήσεων από Firestore
 function loadQuestions() {
