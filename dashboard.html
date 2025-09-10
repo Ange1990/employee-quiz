@@ -2,58 +2,69 @@
 <html lang="el">
 <head>
   <meta charset="UTF-8">
-  <title>Dashboard Αποτελεσμάτων</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>CEO Dashboard</title>
   <style>
-    body {
-      font-family: 'Arial', sans-serif;
-      margin: 0;
-      padding: 20px;
-      background: linear-gradient(135deg, #6a11cb, #2575fc);
-      color: #fff;
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 30px;
-      font-size: 36px;
-      letter-spacing: 2px;
-    }
-
-    .dashboard-container {
-      max-width: 1000px;
-      margin: auto;
-      background: rgba(255,255,255,0.1);
-      padding: 30px;
-      border-radius: 15px;
-      backdrop-filter: blur(10px);
-    }
-
-    canvas {
-      margin: 30px 0;
-      background: rgba(255,255,255,0.2);
-      padding: 20px;
-      border-radius: 12px;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; background:#f0f2f5; }
+    h1 { text-align:center; margin-bottom: 30px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:10px; border:1px solid #ccc; text-align:center; }
+    th { background:#2575fc; color:#fff; }
+    tr:nth-child(even) { background:#e6e6e6; }
   </style>
 </head>
 <body>
-  <h1>📊 Dashboard Αποτελεσμάτων</h1>
+  <h1>Employee Quiz Results</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Email Υπαλλήλου</th>
+        <th>Σκορ</th>
+        <th>Σύνολο Ερωτήσεων</th>
+        <th>Ημερομηνία Υποβολής</th>
+      </tr>
+    </thead>
+    <tbody id="results-body"></tbody>
+  </table>
 
-  <div class="dashboard-container">
-    <h2>Στατιστικά Συνολικών Απαντήσεων</h2>
-    <canvas id="answersChart"></canvas>
-
-    <h2>Υποβολές Χρηστών</h2>
-    <ul id="userList"></ul>
-  </div>
-
-  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script>
+    const resultsBody = document.getElementById("results-body");
 
-  <!-- Script μας -->
-  <script src="js/dashboard.js"></script>
+    // Έλεγχος αν είναι συνδεδεμένος και CEO
+    auth.onAuthStateChanged(user => {
+      if(!user) {
+        window.location.href = "index.html";
+      } else {
+        // Προαιρετικά: Έλεγχος αν user.email === CEO email
+        if(user.email !== "ceo@example.com") {
+          alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
+          window.location.href = "index.html";
+        } else {
+          loadResults();
+        }
+      }
+    });
+
+    function loadResults() {
+      db.collection("results").orderBy("timestamp","desc").get().then(snapshot => {
+        resultsBody.innerHTML = "";
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const date = data.timestamp ? data.timestamp.toDate().toLocaleString() : "";
+          resultsBody.innerHTML += `
+            <tr>
+              <td>${data.email}</td>
+              <td>${data.score}</td>
+              <td>${data.total}</td>
+              <td>${date}</td>
+            </tr>
+          `;
+        });
+      });
+    }
+  </script>
 </body>
 </html>
