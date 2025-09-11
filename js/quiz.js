@@ -37,69 +37,69 @@ function loadQuestions() {
       const optionsDiv = document.createElement("div");
       optionsDiv.className = "options";
 
-      data.options.forEach(opt => {
-        const label = document.createElement("label");
-        label.innerHTML = `<input type="radio" name="${doc.id}" value="${opt}" /> ${opt}`;
-        optionsDiv.appendChild(label);
-      });
+      if (data.type === "mcq" && Array.isArray(data.options)) {
+        // Ερώτηση πολλαπλής επιλογής
+        data.options.forEach(opt => {
+          const label = document.createElement("label");
+          label.innerHTML = `<input type="radio" name="${doc.id}" value="${opt}" /> ${opt}`;
+          optionsDiv.appendChild(label);
+        });
+        card.appendChild(optionsDiv);
+      } else if (data.type === "open") {
+        // Ερώτηση ανάπτυξης
+        const textarea = document.createElement("textarea");
+        textarea.name = doc.id;
+        textarea.rows = 4;
+        textarea.cols = 50;
+        textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
+        card.appendChild(textarea);
+      }
 
-      card.appendChild(optionsDiv);
       container.appendChild(card);
     });
   }).catch(err => console.error(err));
 }
 
-// Υποβολή & εμφάνιση ολοκληρωμένου τεστ με confirm και alert
+// Υποβολή απαντήσεων
 form.addEventListener("submit", (e) => {
   e.preventDefault();
 
-  // Confirm πριν την υποβολή
   const confirmSubmit = confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;");
-  if (!confirmSubmit) return; // Αν πατήσει Όχι, ακυρώνουμε
+  if (!confirmSubmit) return;
 
-  let score = 0;
-  let total = 0;
-  const resultsHTML = [];
+  const user = auth.currentUser;
+  const answers = {};
 
   db.collection("questions").get().then(snapshot => {
     snapshot.forEach(doc => {
       const data = doc.data();
-      total++;
+      let answer = "";
 
-      const selected = form.querySelector(`input[name="${doc.id}"]:checked`);
-      const answer = selected ? selected.value : "Δεν απαντήθηκε";
+      if (data.type === "mcq") {
+        const selected = form.querySelector(`input[name="${doc.id}"]:checked`);
+        answer = selected ? selected.value : "Δεν απαντήθηκε";
+      } else if (data.type === "open") {
+        const textarea = form.querySelector(`textarea[name="${doc.id}"]`);
+        answer = textarea ? textarea.value.trim() : "";
+      }
 
-      if(answer === data.correct) score++;
-
-      resultsHTML.push(`
-        <div class="question-card">
-          <div class="question-text">${data.text}</div>
-          <div>Η απάντηση σου: <b>${answer}</b></div>
-          <div>Σωστή απάντηση: <b>${data.correct}</b></div>
-        </div>
-      `);
+      answers[doc.id] = {
+        question: data.text,
+        answer: answer
+      };
     });
 
-    // Εμφάνιση αποτελεσμάτων
-    container.innerHTML = `
-      <h2>Αποτελέσματα: ${score}/${total}</h2>
-      ${resultsHTML.join("")}
-    `;
-
     // Αποθήκευση στο Firestore
-    const user = auth.currentUser;
-    if(user){
+    if (user) {
       db.collection("results").add({
         uid: user.uid,
         email: user.email,
-        score: score,
-        total: total,
+        answers: answers,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       }).then(() => {
-        alert("Ολοκληρώθηκε η αποστολή απαντήσεων!");
-      });
-    } else {
-      alert("Ολοκληρώθηκε η υποβολή απαντήσεων!");
+        alert("Οι απαντήσεις σου καταχωρήθηκαν με επιτυχία!");
+        container.innerHTML = "<h2>Ευχαριστούμε για τη συμμετοχή!</h2>";
+      }).catch(err => console.error("Σφάλμα αποθήκευσης:", err));
     }
   });
 });
