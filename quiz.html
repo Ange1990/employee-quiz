@@ -135,6 +135,42 @@
       resize: vertical;
       font-size: 16px;
     }
+/* Navigation buttons */
+.nav-btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
+.nav-btn.prev {
+  background: linear-gradient(135deg, #6a11cb, #2575fc);
+}
+.nav-btn.prev:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(37,117,252,0.4);
+}
+
+.nav-btn.next {
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+}
+.nav-btn.next:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(255,65,108,0.4);
+}
+
+.nav-btn.submit {
+  background: linear-gradient(135deg, #00c6ff, #0072ff);
+}
+.nav-btn.submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0,114,255,0.4);
+}
 
     button[type="submit"] {
       width: 100%;
@@ -206,3 +242,4 @@
   <script src="js/quiz.js"></script>
 </body>
 </html>
+
