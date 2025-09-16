@@ -2,6 +2,10 @@ const container = document.getElementById("questions-container");
 const form = document.getElementById("quiz-form");
 const userEmailSpan = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
+const progressBar = document.getElementById("progress");
+
+let totalQuestions = 0;
+let answeredCount = 0;
 
 // Έλεγχος αν είναι συνδεδεμένος ο χρήστης
 auth.onAuthStateChanged(user => {
@@ -24,6 +28,8 @@ logoutBtn.addEventListener("click", () => {
 function loadQuestions() {
   db.collection("questions").get().then(snapshot => {
     container.innerHTML = "";
+    totalQuestions = snapshot.size;
+
     snapshot.forEach(doc => {
       const data = doc.data();
       const card = document.createElement("div");
@@ -57,7 +63,61 @@ function loadQuestions() {
 
       container.appendChild(card);
     });
+
+    // Tracking απαντήσεων
+    trackAnswers();
   }).catch(err => console.error(err));
+}
+
+// Παρακολούθηση απαντήσεων για ενημέρωση progress bar
+function trackAnswers() {
+  answeredCount = 0;
+  updateProgress();
+
+  // Radio buttons
+  const radios = form.querySelectorAll('input[type="radio"]');
+  radios.forEach(radio => {
+    radio.addEventListener("change", () => {
+      checkAnswered();
+    });
+  });
+
+  // Textareas
+  const textareas = form.querySelectorAll("textarea");
+  textareas.forEach(txt => {
+    txt.addEventListener("input", () => {
+      checkAnswered();
+    });
+  });
+}
+
+// Υπολογισμός πόσες απαντήσεις έχουν δοθεί
+function checkAnswered() {
+  let count = 0;
+
+  db.collection("questions").get().then(snapshot => {
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.type === "mcq") {
+        const selected = form.querySelector(`input[name="${doc.id}"]:checked`);
+        if (selected) count++;
+      } else if (data.type === "open") {
+        const textarea = form.querySelector(`textarea[name="${doc.id}"]`);
+        if (textarea && textarea.value.trim() !== "") count++;
+      }
+    });
+
+    answeredCount = count;
+    updateProgress();
+  });
+}
+
+// Ενημέρωση progress bar
+function updateProgress() {
+  if (totalQuestions > 0) {
+    const percent = (answeredCount / totalQuestions) * 100;
+    progressBar.style.width = `${percent}%`;
+  }
 }
 
 // Υποβολή απαντήσεων
@@ -99,6 +159,7 @@ form.addEventListener("submit", (e) => {
       }).then(() => {
         alert("Οι απαντήσεις σου καταχωρήθηκαν με επιτυχία!");
         container.innerHTML = "<h2>Ευχαριστούμε για τη συμμετοχή!</h2>";
+        progressBar.style.width = "100%"; // γεμίζει πλήρως στο τέλος
       }).catch(err => console.error("Σφάλμα αποθήκευσης:", err));
     }
   });
