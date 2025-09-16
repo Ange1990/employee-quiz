@@ -82,12 +82,13 @@ function renderNavigation() {
   let nav = document.createElement("div");
   nav.style.display = "flex";
   nav.style.justifyContent = "space-between";
-  nav.style.marginTop = "20px";
+  nav.style.marginTop = "25px";
 
   if (currentIndex > 0) {
     let prevBtn = document.createElement("button");
     prevBtn.type = "button";
     prevBtn.textContent = "⬅ Προηγούμενο";
+    prevBtn.className = "nav-btn prev";
     prevBtn.onclick = () => saveAnswerAndMove(-1);
     nav.appendChild(prevBtn);
   }
@@ -96,19 +97,21 @@ function renderNavigation() {
     let nextBtn = document.createElement("button");
     nextBtn.type = "button";
     nextBtn.textContent = "Επόμενο ➡";
+    nextBtn.className = "nav-btn next";
     nextBtn.onclick = () => saveAnswerAndMove(1);
     nav.appendChild(nextBtn);
   } else {
     let submitBtn = document.createElement("button");
     submitBtn.type = "submit";
     submitBtn.textContent = "Υποβολή Απαντήσεων";
+    submitBtn.className = "nav-btn submit";
     nav.appendChild(submitBtn);
   }
 
   container.appendChild(nav);
 }
 
-// Αποθήκευση τρέχουσας απάντησης πριν τη μετάβαση
+// Αποθήκευση απάντησης πριν μετάβαση
 function saveAnswerAndMove(step) {
   const q = questions[currentIndex];
 
@@ -133,7 +136,7 @@ function updateProgress() {
 form.addEventListener("submit", (e) => {
   e.preventDefault();
 
-  // σώζουμε την τελευταία απάντηση
+  // Σώζουμε την τελευταία απάντηση
   saveAnswerAndMove(0);
 
   const confirmSubmit = confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;");
