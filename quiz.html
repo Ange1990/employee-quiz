@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>Employee Quiz</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; font-family:'Arial', sans-serif; }
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Poppins', sans-serif; }
 
     body {
       min-height: 100vh;
@@ -16,7 +17,7 @@
       position: relative;
     }
 
-    /* Fixed header πάνω δεξιά */
+    /* Fixed header */
     #fixed-header {
       position: fixed;
       top: 10px;
@@ -24,103 +25,171 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      background: rgba(0,0,0,0.3);
-      padding: 8px 12px;
-      border-radius: 8px;
+      background: rgba(0,0,0,0.4);
+      padding: 8px 14px;
+      border-radius: 12px;
       color: #fff;
       z-index: 1000;
     }
 
     #logout-btn {
-      padding:4px 10px;
+      padding:6px 12px;
       border:none;
-      border-radius:5px;
+      border-radius:6px;
       cursor:pointer;
       background:#ff4b2b;
       color:#fff;
+      font-weight:600;
+      transition:0.3s;
+    }
+
+    #logout-btn:hover {
+      background:#ff6a4d;
+      transform:scale(1.05);
     }
 
     .quiz-container {
-      background: rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.12);
       padding: 40px;
-      border-radius: 15px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-      width: 600px;
-      backdrop-filter: blur(10px);
+      border-radius: 18px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+      width: 650px;
+      backdrop-filter: blur(12px);
       color: #fff;
+      animation: fadeIn 0.8s ease;
     }
 
     h2 {
       text-align: center;
-      margin-bottom: 30px;
+      margin-bottom: 25px;
       font-size: 32px;
-      letter-spacing: 2px;
+      letter-spacing: 1.5px;
+      font-weight:600;
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      width: 100%;
+      background: rgba(255,255,255,0.2);
+      border-radius: 10px;
+      height: 12px;
+      margin-bottom: 25px;
+      overflow: hidden;
+    }
+
+    .progress {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(to right, #ff416c, #ff4b2b);
+      border-radius: 10px;
+      transition: width 0.4s ease;
     }
 
     .question-card {
-      background: rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.18);
       padding: 20px;
-      border-radius: 12px;
+      border-radius: 15px;
       margin-bottom: 20px;
-      transition: transform 0.2s;
+      transition: all 0.3s ease;
+      border: 1px solid rgba(255,255,255,0.2);
+      animation: slideUp 0.6s ease;
     }
 
     .question-card:hover {
       transform: translateY(-3px);
-      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
     }
 
     .question-text {
       margin-bottom: 15px;
       font-size: 18px;
+      font-weight: 500;
     }
-textarea {
-  width: 100%;
-  padding: 10px;
-  border-radius: 8px;
-  border: none;
-  resize: vertical;
-  font-size: 16px;
-}
 
     .options label {
-      display: block;
-      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
       cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: background 0.3s;
+    }
+
+    .options label:hover {
+      background: rgba(255,255,255,0.15);
+    }
+
+    .options input[type="radio"],
+    .options input[type="checkbox"] {
+      accent-color: #ff416c;
+      transform: scale(1.2);
+    }
+
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      resize: vertical;
+      font-size: 16px;
     }
 
     button[type="submit"] {
       width: 100%;
-      padding: 12px;
+      padding: 14px;
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       background-image: linear-gradient(to right, #ff416c, #ff4b2b);
       color: white;
       font-size: 18px;
+      font-weight:600;
       cursor: pointer;
       transition: 0.3s;
       margin-top: 20px;
+      position: relative;
+      overflow: hidden;
     }
 
     button[type="submit"]:hover {
       transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from {opacity:0; transform:scale(0.95);}
+      to {opacity:1; transform:scale(1);}
+    }
+
+    @keyframes slideUp {
+      from {opacity:0; transform:translateY(20px);}
+      to {opacity:1; transform:translateY(0);}
     }
   </style>
 </head>
 <body>
 
-  <!-- Fixed header πάνω δεξιά -->
+  <!-- Fixed header -->
   <div id="fixed-header">
-    <span id="user-email"></span>
+    <span id="user-email">user@email.com</span>
     <button id="logout-btn">Αποσύνδεση</button>
   </div>
 
   <!-- Quiz container -->
   <div class="quiz-container">
     <h2>Employee Quiz</h2>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+      <div class="progress" id="progress"></div>
+    </div>
+
     <form id="quiz-form">
-      <div id="questions-container"></div>
+      <div id="questions-container">
+        <!-- Ερωτήσεις θα μπαίνουν εδώ -->
+      </div>
       <button type="submit">Υποβολή Απαντήσεων</button>
     </form>
   </div>
@@ -137,4 +206,3 @@ textarea {
   <script src="js/quiz.js"></script>
 </body>
 </html>
-
