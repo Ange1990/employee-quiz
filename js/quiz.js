@@ -4,8 +4,9 @@ const userEmailSpan = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
 const progressBar = document.getElementById("progress");
 
-let totalQuestions = 0;
-let answeredCount = 0;
+let questions = [];
+let currentIndex = 0;
+let answers = {};
 
 // Έλεγχος αν είναι συνδεδεμένος ο χρήστης
 auth.onAuthStateChanged(user => {
@@ -24,143 +25,130 @@ logoutBtn.addEventListener("click", () => {
   });
 });
 
-// Φόρτωση ερωτήσεων από Firestore
+// Φόρτωση ερωτήσεων
 function loadQuestions() {
   db.collection("questions").get().then(snapshot => {
-    container.innerHTML = "";
-    totalQuestions = snapshot.size;
-
+    questions = [];
     snapshot.forEach(doc => {
-      const data = doc.data();
-      const card = document.createElement("div");
-      card.className = "question-card";
-
-      const qText = document.createElement("div");
-      qText.className = "question-text";
-      qText.textContent = data.text;
-      card.appendChild(qText);
-
-      const optionsDiv = document.createElement("div");
-      optionsDiv.className = "options";
-
-      if (data.type === "mcq" && Array.isArray(data.options)) {
-        // Ερώτηση πολλαπλής επιλογής
-        data.options.forEach(opt => {
-          const label = document.createElement("label");
-          label.innerHTML = `<input type="radio" name="${doc.id}" value="${opt}" /> ${opt}`;
-          optionsDiv.appendChild(label);
-        });
-        card.appendChild(optionsDiv);
-      } else if (data.type === "open") {
-        // Ερώτηση ανάπτυξης
-        const textarea = document.createElement("textarea");
-        textarea.name = doc.id;
-        textarea.rows = 4;
-        textarea.cols = 50;
-        textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
-        card.appendChild(textarea);
-      }
-
-      container.appendChild(card);
+      questions.push({ id: doc.id, ...doc.data() });
     });
-
-    // Tracking απαντήσεων
-    trackAnswers();
-  }).catch(err => console.error(err));
-}
-
-// Παρακολούθηση απαντήσεων για ενημέρωση progress bar
-function trackAnswers() {
-  answeredCount = 0;
-  updateProgress();
-
-  // Radio buttons
-  const radios = form.querySelectorAll('input[type="radio"]');
-  radios.forEach(radio => {
-    radio.addEventListener("change", () => {
-      checkAnswered();
-    });
-  });
-
-  // Textareas
-  const textareas = form.querySelectorAll("textarea");
-  textareas.forEach(txt => {
-    txt.addEventListener("input", () => {
-      checkAnswered();
-    });
+    showQuestion(0);
   });
 }
 
-// Υπολογισμός πόσες απαντήσεις έχουν δοθεί
-function checkAnswered() {
-  let count = 0;
+// Εμφάνιση μιας ερώτησης
+function showQuestion(index) {
+  currentIndex = index;
+  const q = questions[index];
 
-  db.collection("questions").get().then(snapshot => {
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      if (data.type === "mcq") {
-        const selected = form.querySelector(`input[name="${doc.id}"]:checked`);
-        if (selected) count++;
-      } else if (data.type === "open") {
-        const textarea = form.querySelector(`textarea[name="${doc.id}"]`);
-        if (textarea && textarea.value.trim() !== "") count++;
-      }
+  container.innerHTML = "";
+
+  const card = document.createElement("div");
+  card.className = "question-card";
+
+  const qText = document.createElement("div");
+  qText.className = "question-text";
+  qText.textContent = q.text;
+  card.appendChild(qText);
+
+  const optionsDiv = document.createElement("div");
+  optionsDiv.className = "options";
+
+  if (q.type === "mcq" && Array.isArray(q.options)) {
+    q.options.forEach(opt => {
+      const label = document.createElement("label");
+      const checked = answers[q.id] === opt ? "checked" : "";
+      label.innerHTML = `<input type="radio" name="${q.id}" value="${opt}" ${checked}/> ${opt}`;
+      optionsDiv.appendChild(label);
     });
-
-    answeredCount = count;
-    updateProgress();
-  });
-}
-
-// Ενημέρωση progress bar
-function updateProgress() {
-  if (totalQuestions > 0) {
-    const percent = (answeredCount / totalQuestions) * 100;
-    progressBar.style.width = `${percent}%`;
+    card.appendChild(optionsDiv);
+  } else if (q.type === "open") {
+    const textarea = document.createElement("textarea");
+    textarea.name = q.id;
+    textarea.rows = 4;
+    textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
+    textarea.value = answers[q.id] || "";
+    card.appendChild(textarea);
   }
+
+  container.appendChild(card);
+
+  renderNavigation();
+  updateProgress();
+}
+
+// Κουμπιά πλοήγησης
+function renderNavigation() {
+  let nav = document.createElement("div");
+  nav.style.display = "flex";
+  nav.style.justifyContent = "space-between";
+  nav.style.marginTop = "20px";
+
+  if (currentIndex > 0) {
+    let prevBtn = document.createElement("button");
+    prevBtn.type = "button";
+    prevBtn.textContent = "⬅ Προηγούμενο";
+    prevBtn.onclick = () => saveAnswerAndMove(-1);
+    nav.appendChild(prevBtn);
+  }
+
+  if (currentIndex < questions.length - 1) {
+    let nextBtn = document.createElement("button");
+    nextBtn.type = "button";
+    nextBtn.textContent = "Επόμενο ➡";
+    nextBtn.onclick = () => saveAnswerAndMove(1);
+    nav.appendChild(nextBtn);
+  } else {
+    let submitBtn = document.createElement("button");
+    submitBtn.type = "submit";
+    submitBtn.textContent = "Υποβολή Απαντήσεων";
+    nav.appendChild(submitBtn);
+  }
+
+  container.appendChild(nav);
+}
+
+// Αποθήκευση τρέχουσας απάντησης πριν τη μετάβαση
+function saveAnswerAndMove(step) {
+  const q = questions[currentIndex];
+
+  if (q.type === "mcq") {
+    const selected = form.querySelector(`input[name="${q.id}"]:checked`);
+    if (selected) answers[q.id] = selected.value;
+  } else if (q.type === "open") {
+    const textarea = form.querySelector(`textarea[name="${q.id}"]`);
+    if (textarea) answers[q.id] = textarea.value.trim();
+  }
+
+  showQuestion(currentIndex + step);
+}
+
+// Progress bar
+function updateProgress() {
+  const percent = ((currentIndex + 1) / questions.length) * 100;
+  progressBar.style.width = `${percent}%`;
 }
 
 // Υποβολή απαντήσεων
 form.addEventListener("submit", (e) => {
   e.preventDefault();
 
+  // σώζουμε την τελευταία απάντηση
+  saveAnswerAndMove(0);
+
   const confirmSubmit = confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;");
   if (!confirmSubmit) return;
 
   const user = auth.currentUser;
-  const answers = {};
-
-  db.collection("questions").get().then(snapshot => {
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      let answer = "";
-
-      if (data.type === "mcq") {
-        const selected = form.querySelector(`input[name="${doc.id}"]:checked`);
-        answer = selected ? selected.value : "Δεν απαντήθηκε";
-      } else if (data.type === "open") {
-        const textarea = form.querySelector(`textarea[name="${doc.id}"]`);
-        answer = textarea ? textarea.value.trim() : "";
-      }
-
-      answers[doc.id] = {
-        question: data.text,
-        answer: answer
-      };
-    });
-
-    // Αποθήκευση στο Firestore
-    if (user) {
-      db.collection("results").add({
-        uid: user.uid,
-        email: user.email,
-        answers: answers,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      }).then(() => {
-        alert("Οι απαντήσεις σου καταχωρήθηκαν με επιτυχία!");
-        container.innerHTML = "<h2>Ευχαριστούμε για τη συμμετοχή!</h2>";
-        progressBar.style.width = "100%"; // γεμίζει πλήρως στο τέλος
-      }).catch(err => console.error("Σφάλμα αποθήκευσης:", err));
-    }
-  });
+  if (user) {
+    db.collection("results").add({
+      uid: user.uid,
+      email: user.email,
+      answers: answers,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+      container.innerHTML = "<h2>Ευχαριστούμε για τη συμμετοχή!</h2>";
+      progressBar.style.width = "100%";
+    }).catch(err => console.error("Σφάλμα αποθήκευσης:", err));
+  }
 });
