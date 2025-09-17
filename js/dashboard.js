@@ -1,12 +1,16 @@
 const resultsBody = document.getElementById("results-body");
 const logoutBtn = document.getElementById("logout-btn");
+const exportBtn = document.getElementById("export-btn");
+const searchInput = document.getElementById("search-input");
 
-// Έλεγχος αν είναι συνδεδεμένος και CEO
+let allResults = []; // Αποθήκευση όλων των αποτελεσμάτων
+
+// Έλεγχος σύνδεσης και CEO
 auth.onAuthStateChanged(user => {
   if (!user) {
     window.location.href = "index.html";
   } else {
-if (user.email !== "nafpliotis@sspc.gr") {
+    if (user.email !== "nafpliotis@sspc.gr") {
       alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
       window.location.href = "index.html";
     } else {
@@ -22,25 +26,95 @@ logoutBtn.addEventListener("click", () => {
   });
 });
 
+// Φόρτωση αποτελεσμάτων
 function loadResults() {
   db.collection("results").orderBy("timestamp", "desc").get()
     .then(snapshot => {
-      resultsBody.innerHTML = "";
+      allResults = [];
       snapshot.forEach(doc => {
-        const data = doc.data();
-        const date = data.timestamp ? data.timestamp.toDate().toLocaleString() : "";
-        resultsBody.innerHTML += `
-          <tr>
-            <td>${data.email}</td>
-            <td>${data.score}</td>
-            <td>${data.total}</td>
-            <td>${date}</td>
-          </tr>
-        `;
+        allResults.push({ id: doc.id, data: doc.data() });
       });
+      renderResults(allResults);
     })
-    .catch(error => {
-      console.error("Σφάλμα κατά τη φόρτωση αποτελεσμάτων:", error);
-    });
+    .catch(error => console.error("Σφάλμα κατά τη φόρτωση αποτελεσμάτων:", error));
 }
+
+// Εμφάνιση αποτελεσμάτων στον πίνακα
+function renderResults(resultsArray) {
+  resultsBody.innerHTML = "";
+  resultsArray.forEach(item => {
+    const docId = item.id;
+    const data = item.data;
+    const dateObj = data.timestamp ? data.timestamp.toDate() : null;
+    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${dateObj.getMinutes()}` : "";
+
+    const row = document.createElement("tr");
+
+    const answersText = Object.entries(data.answers || {})
+                              .map(([qId, ans]) => `${qId}: ${ans}`)
+                              .join("\n");
+
+    row.innerHTML = `
+      <td>${data.email}</td>
+      <td class="answers-cell">${answersText}</td>
+      <td>${date}</td>
+      <td><button class="delete-btn">Διαγραφή</button></td>
+    `;
+
+    // Διαγραφή αποτελέσματος
+    row.querySelector(".delete-btn").addEventListener("click", () => {
+      if (confirm("Είσαι σίγουρος ότι θέλεις να διαγράψεις αυτό το αποτέλεσμα;")) {
+        db.collection("results").doc(docId).delete()
+          .then(() => {
+            row.remove();
+            allResults = allResults.filter(r => r.id !== docId); // Αφαιρείται και από το array
+          })
+          .catch(err => console.error("Σφάλμα κατά τη διαγραφή:", err));
+      }
+    });
+
+    resultsBody.appendChild(row);
+  });
+}
+
+// Φίλτρο αναζήτησης κατά email
+searchInput.addEventListener("input", () => {
+  const query = searchInput.value.toLowerCase();
+  const filtered = allResults.filter(item => item.data.email.toLowerCase().includes(query));
+  renderResults(filtered);
+});
+
+// Εξαγωγή αποτελεσμάτων σε CSV (για Excel)
+exportBtn.addEventListener("click", () => {
+  if (!allResults.length) {
+    alert("Δεν υπάρχουν αποτελέσματα για εξαγωγή.");
+    return;
+  }
+
+  const headers = ["Email Υπαλλήλου", "Απαντήσεις", "Ημερομηνία Υποβολής"];
+  const rows = [headers.join(",")];
+
+  allResults.forEach(item => {
+    const data = item.data;
+    const dateObj = data.timestamp ? data.timestamp.toDate() : null;
+    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${dateObj.getMinutes()}` : "";
+
+    const answersText = Object.entries(data.answers || {})
+                              .map(([qId, ans]) => `${qId}: ${ans.replace(/,/g, ";")}`)
+                              .join(" | ");
+
+    const row = [data.email, `"${answersText}"`, date].join(",");
+    rows.push(row);
+  });
+
+  const csvContent = rows.join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `employee_quiz_results_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+});
 
