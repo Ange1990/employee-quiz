@@ -75,6 +75,7 @@ function showQuestion(index) {
 
   renderNavigation();
   updateProgress();
+  updateSubmitButton();
 }
 
 // Κουμπιά πλοήγησης
@@ -100,15 +101,19 @@ function renderNavigation() {
     nextBtn.className = "nav-btn next";
     nextBtn.onclick = () => saveAnswerAndMove(1);
     nav.appendChild(nextBtn);
-  } else {
-    let submitBtn = document.createElement("button");
-    submitBtn.type = "submit";
-    submitBtn.textContent = "Υποβολή Απαντήσεων";
-    submitBtn.className = "nav-btn submit";
-    nav.appendChild(submitBtn);
   }
 
   container.appendChild(nav);
+}
+
+// Εμφάνιση/απόκρυψη submit button
+function updateSubmitButton() {
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if (currentIndex === questions.length - 1) {
+    submitBtn.style.display = "block";
+  } else {
+    submitBtn.style.display = "none";
+  }
 }
 
 // Αποθήκευση απάντησης πριν μετάβαση
