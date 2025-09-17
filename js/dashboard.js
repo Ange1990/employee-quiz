@@ -99,7 +99,7 @@ searchInput.addEventListener("input", () => {
   renderResults(filtered);
 });
 
-// Εξαγωγή σε CSV/Excel
+// Εξαγωγή σε CSV/Excel (με σωστή εμφάνιση ελληνικών και line breaks)
 exportBtn.addEventListener("click", () => {
   if (!allResults.length) {
     alert("Δεν υπάρχουν αποτελέσματα για εξαγωγή.");
@@ -114,18 +114,21 @@ exportBtn.addEventListener("click", () => {
     const dateObj = data.timestamp ? data.timestamp.toDate() : null;
     const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${dateObj.getMinutes()}` : "";
 
+    // Ερωτήσεις + απαντήσεις με σωστά line breaks (\r\n)
     const answersText = Object.entries(data.answers || {})
       .map(([qId, ans]) => {
         const questionText = allQuestions[qId] || qId;
-        return `${questionText}: ${ans.replace(/,/g, ";")}`;
+        return `${questionText}: ${ans.replace(/"/g,'""')}`; // Αντικατάσταση " με "" για CSV
       })
-      .join(" | ");
+      .join("\r\n");
 
+    // Βάζουμε το κελί σε διπλά εισαγωγικά για σωστή εμφάνιση πολλαπλών γραμμών
     const row = [data.email, `"${answersText}"`, date].join(",");
     rows.push(row);
   });
 
-  const csvContent = rows.join("\n");
+  // Προσθήκη UTF-8 BOM για σωστά ελληνικά
+  const csvContent = "\uFEFF" + rows.join("\r\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -135,5 +138,4 @@ exportBtn.addEventListener("click", () => {
   a.click();
   document.body.removeChild(a);
 });
-
 
