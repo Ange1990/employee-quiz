@@ -3,7 +3,8 @@ const logoutBtn = document.getElementById("logout-btn");
 const exportBtn = document.getElementById("export-btn");
 const searchInput = document.getElementById("search-input");
 
-let allResults = []; // Αποθήκευση όλων των αποτελεσμάτων
+let allResults = [];      // Αποθήκευση όλων των αποτελεσμάτων
+let allQuestions = {};    // Αποθήκευση ερωτήσεων με qId
 
 // Έλεγχος σύνδεσης και CEO
 auth.onAuthStateChanged(user => {
@@ -14,7 +15,7 @@ auth.onAuthStateChanged(user => {
       alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
       window.location.href = "index.html";
     } else {
-      loadResults();
+      loadQuestions().then(() => loadResults());
     }
   }
 });
@@ -25,6 +26,16 @@ logoutBtn.addEventListener("click", () => {
     window.location.href = "index.html";
   });
 });
+
+// Φόρτωση όλων των ερωτήσεων
+function loadQuestions() {
+  return db.collection("questions").get()
+    .then(snapshot => {
+      snapshot.forEach(doc => {
+        allQuestions[doc.id] = doc.data().text;
+      });
+    });
+}
 
 // Φόρτωση αποτελεσμάτων
 function loadResults() {
@@ -39,7 +50,7 @@ function loadResults() {
     .catch(error => console.error("Σφάλμα κατά τη φόρτωση αποτελεσμάτων:", error));
 }
 
-// Εμφάνιση αποτελεσμάτων στον πίνακα
+// Εμφάνιση αποτελεσμάτων
 function renderResults(resultsArray) {
   resultsBody.innerHTML = "";
   resultsArray.forEach(item => {
@@ -50,9 +61,13 @@ function renderResults(resultsArray) {
 
     const row = document.createElement("tr");
 
+    // Δημιουργία πλήρους κειμένου με ερώτηση + απάντηση
     const answersText = Object.entries(data.answers || {})
-                              .map(([qId, ans]) => `${qId}: ${ans}`)
-                              .join("\n");
+      .map(([qId, ans]) => {
+        const questionText = allQuestions[qId] || qId;
+        return `${questionText}\nΑπάντηση: ${ans}`;
+      })
+      .join("\n\n");
 
     row.innerHTML = `
       <td>${data.email}</td>
@@ -67,7 +82,7 @@ function renderResults(resultsArray) {
         db.collection("results").doc(docId).delete()
           .then(() => {
             row.remove();
-            allResults = allResults.filter(r => r.id !== docId); // Αφαιρείται και από το array
+            allResults = allResults.filter(r => r.id !== docId);
           })
           .catch(err => console.error("Σφάλμα κατά τη διαγραφή:", err));
       }
@@ -77,14 +92,14 @@ function renderResults(resultsArray) {
   });
 }
 
-// Φίλτρο αναζήτησης κατά email
+// Φίλτρο αναζήτησης
 searchInput.addEventListener("input", () => {
   const query = searchInput.value.toLowerCase();
   const filtered = allResults.filter(item => item.data.email.toLowerCase().includes(query));
   renderResults(filtered);
 });
 
-// Εξαγωγή αποτελεσμάτων σε CSV (για Excel)
+// Εξαγωγή σε CSV/Excel
 exportBtn.addEventListener("click", () => {
   if (!allResults.length) {
     alert("Δεν υπάρχουν αποτελέσματα για εξαγωγή.");
@@ -100,8 +115,11 @@ exportBtn.addEventListener("click", () => {
     const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${dateObj.getMinutes()}` : "";
 
     const answersText = Object.entries(data.answers || {})
-                              .map(([qId, ans]) => `${qId}: ${ans.replace(/,/g, ";")}`)
-                              .join(" | ");
+      .map(([qId, ans]) => {
+        const questionText = allQuestions[qId] || qId;
+        return `${questionText}: ${ans.replace(/,/g, ";")}`;
+      })
+      .join(" | ");
 
     const row = [data.email, `"${answersText}"`, date].join(",");
     rows.push(row);
@@ -117,4 +135,5 @@ exportBtn.addEventListener("click", () => {
   a.click();
   document.body.removeChild(a);
 });
+
 
