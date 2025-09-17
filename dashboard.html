@@ -5,34 +5,79 @@
   <title>CEO Dashboard</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; background:#f0f2f5; }
-    h1 { text-align:center; margin-bottom: 30px; }
-    table { width:100%; border-collapse: collapse; }
-    th, td { padding:10px; border:1px solid #ccc; text-align:center; }
-    th { background:#2575fc; color:#fff; }
-    tr:nth-child(even) { background:#e6e6e6; }
-    #logout-btn { margin-bottom:20px; padding:6px 12px; border:none; border-radius:5px; cursor:pointer; background:#ff4b2b; color:#fff; }
+    h1 { text-align:center; margin-bottom: 10px; color:#333; }
+
+    /* Κουμπιά */
+    #logout-btn, #export-btn {
+      padding:8px 16px;
+      border:none;
+      border-radius:5px;
+      cursor:pointer;
+      color:#fff;
+      font-weight:600;
+      margin-bottom:15px;
+      margin-right:10px;
+    }
+    #logout-btn { background:#ff4b2b; }
+    #logout-btn:hover { background:#ff6a4d; }
+    #export-btn { background:#00c6ff; }
+    #export-btn:hover { background:#0072ff; }
+
+    /* Search input */
+    #search-input { padding:8px 12px; width:300px; border-radius:5px; border:1px solid #ccc; margin-bottom:15px; }
+
+    /* Table */
+    .table-container { max-height: 65vh; overflow-y:auto; border:1px solid #ccc; border-radius:8px; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+    table { width:100%; border-collapse: collapse; min-width:800px; }
+    th, td { padding:10px; border-bottom:1px solid #eee; text-align:left; vertical-align:top; }
+    th { background:#2575fc; color:#fff; position: sticky; top:0; z-index:2; }
+    tr:nth-child(even) { background:#f9f9f9; }
+    tr:hover { background:#f1f1f1; }
+
+    .delete-btn {
+      padding:4px 8px;
+      border:none;
+      border-radius:4px;
+      cursor:pointer;
+      background:#ff4b2b;
+      color:#fff;
+      font-weight:600;
+      transition:0.2s;
+    }
+    .delete-btn:hover { background:#ff6a4d; }
+
+    td.answers-cell { white-space: pre-wrap; max-width:400px; }
   </style>
 </head>
 <body>
 
   <button id="logout-btn">Αποσύνδεση</button>
+  <button id="export-btn">Εξαγωγή σε Excel</button>
   <h1>Employee Quiz Results</h1>
-  <table>
-    <thead>
-      <tr>
-        <th>Email Υπαλλήλου</th>
-        <th>Σκορ</th>
-        <th>Σύνολο Ερωτήσεων</th>
-        <th>Ημερομηνία Υποβολής</th>
-      </tr>
-    </thead>
-    <tbody id="results-body"></tbody>
-  </table>
+  <input type="text" id="search-input" placeholder="Αναζήτηση με email υπαλλήλου...">
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Email Υπαλλήλου</th>
+          <th>Απαντήσεις</th>
+          <th>Ημερομηνία Υποβολής</th>
+          <th>Ενέργειες</th>
+        </tr>
+      </thead>
+      <tbody id="results-body"></tbody>
+    </table>
+  </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/dashboard.js"></script>
+
 </body>
 </html>
+
+</html>
+
