@@ -2,95 +2,233 @@
 <html lang="el">
 <head>
   <meta charset="UTF-8">
-  <title>Employee Quiz Login</title>
+  <title>Employee Quiz</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; }
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Poppins', sans-serif; }
 
     body {
-      height: 100vh;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #2575fc, #6a11cb);
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
-      background: linear-gradient(135deg, #6a11cb, #2575fc);
+      padding: 20px;
+      position: relative;
+    }
+
+    /* Fixed header */
+    #fixed-header {
+      position: fixed;
+      top: 10px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,0,0,0.4);
+      padding: 8px 14px;
+      border-radius: 12px;
       color: #fff;
+      z-index: 1000;
     }
 
-    .header {
-      text-align: center;
-      margin-bottom: 50px;
+    #logout-btn {
+      padding:6px 12px;
+      border:none;
+      border-radius:6px;
+      cursor:pointer;
+      background:#ff4b2b;
+      color:#fff;
+      font-weight:600;
+      transition:0.3s;
     }
 
-    .header h1 {
-      font-size: 60px;
-      font-style: italic;
-      letter-spacing: 12px;
-      animation: float 2s ease-in-out infinite alternate;
+    #logout-btn:hover {
+      background:#ff6a4d;
+      transform:scale(1.05);
     }
 
-    @keyframes float {
-      0% { transform: translateY(0) rotate(-2deg); }
-      50% { transform: translateY(-10px) rotate(2deg); }
-      100% { transform: translateY(0) rotate(-2deg); }
-    }
-
-    .login-container {
-      background: rgba(255,255,255,0.1);
+    .quiz-container {
+      background: rgba(255,255,255,0.12);
       padding: 40px;
-      border-radius: 15px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-      width: 380px;
+      border-radius: 18px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+      width: 650px;
+      backdrop-filter: blur(12px);
+      color: #fff;
+      animation: fadeIn 0.8s ease;
+    }
+
+    h2 {
       text-align: center;
-      backdrop-filter: blur(10px);
-    }
-
-    .login-container h2 {
       margin-bottom: 25px;
-      font-size: 28px;
-      letter-spacing: 2px;
+      font-size: 32px;
+      letter-spacing: 1.5px;
+      font-weight:600;
     }
 
-    input {
+    /* Progress bar */
+    .progress-bar {
       width: 100%;
-      padding: 12px 15px;
-      margin: 10px 0;
-      border: none;
+      background: rgba(255,255,255,0.2);
       border-radius: 10px;
-      outline: none;
+      height: 12px;
+      margin-bottom: 25px;
+      overflow: hidden;
+    }
+
+    .progress {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(to right, #ff416c, #ff4b2b);
+      border-radius: 10px;
+      transition: width 0.4s ease;
+    }
+
+    .question-card {
+      background: rgba(255,255,255,0.18);
+      padding: 20px;
+      border-radius: 15px;
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+      border: 1px solid rgba(255,255,255,0.2);
+      animation: slideUp 0.6s ease;
+    }
+
+    .question-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    }
+
+    .question-text {
+      margin-bottom: 15px;
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .options label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: background 0.3s;
+    }
+
+    .options label:hover {
+      background: rgba(255,255,255,0.15);
+    }
+
+    .options input[type="radio"],
+    .options input[type="checkbox"] {
+      accent-color: #ff416c;
+      transform: scale(1.2);
+    }
+
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      resize: vertical;
       font-size: 16px;
     }
 
-    button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 15px;
+    /* Navigation buttons */
+    .nav-btn {
+      padding: 12px 20px;
       border: none;
       border-radius: 10px;
-      background-color: #ff416c;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+
+    .nav-btn.prev {
+      background: linear-gradient(135deg, #6a11cb, #2575fc);
+    }
+    .nav-btn.prev:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(37,117,252,0.4);
+    }
+
+    .nav-btn.next {
+      background: linear-gradient(135deg, #ff416c, #ff4b2b);
+    }
+    .nav-btn.next:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(255,65,108,0.4);
+    }
+
+    .nav-btn.submit {
+      background: linear-gradient(135deg, #00c6ff, #0072ff);
+    }
+    .nav-btn.submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0,114,255,0.4);
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
       background-image: linear-gradient(to right, #ff416c, #ff4b2b);
       color: white;
-      font-size: 16px;
+      font-size: 18px;
+      font-weight:600;
       cursor: pointer;
       transition: 0.3s;
+      margin-top: 20px;
+      position: relative;
+      overflow: hidden;
     }
 
-    button:hover {
+    button[type="submit"]:hover {
       transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from {opacity:0; transform:scale(0.95);}
+      to {opacity:1; transform:scale(1);}
+    }
+
+    @keyframes slideUp {
+      from {opacity:0; transform:translateY(20px);}
+      to {opacity:1; transform:translateY(0);}
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>SSPC</h1>
+
+  <!-- Fixed header -->
+  <div id="fixed-header">
+    <span id="user-email">user@email.com</span>
+    <button id="logout-btn">Αποσύνδεση</button>
   </div>
 
-  <div class="login-container">
-    <h2>Login Employee</h2>
-    <form id="loginForm">
-      <input type="email" id="email" placeholder="Email" required />
-      <input type="password" id="password" placeholder="Password" required />
-      <button type="submit">Σύνδεση</button>
+  <!-- Quiz container -->
+  <div class="quiz-container">
+    <h2>Employee Quiz</h2>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <form id="quiz-form">
+      <div id="questions-container">
+        <!-- Ερωτήσεις θα μπαίνουν εδώ -->
+      </div>
+      <!-- Submit button που εμφανίζεται μόνο στην τελευταία ερώτηση -->
+      <button type="submit">Υποβολή Απαντήσεων</button>
     </form>
   </div>
 
@@ -102,7 +240,9 @@
   <!-- Config -->
   <script src="js/firebase-config.js"></script>
 
-  <!-- Μόνο το script που χρειάζεται εδώ -->
-  <script src="js/auth.js"></script>
+  <!-- Quiz logic -->
+  <script src="js/quiz.js"></script>
 </body>
 </html>
+
+
