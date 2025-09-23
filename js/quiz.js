@@ -20,18 +20,14 @@ auth.onAuthStateChanged(user => {
 
 // Logout
 logoutBtn.addEventListener("click", () => {
-  auth.signOut().then(() => {
-    window.location.href = "index.html";
-  });
+  auth.signOut().then(() => window.location.href = "index.html");
 });
 
 // Φόρτωση ερωτήσεων
 function loadQuestions() {
   db.collection("questions").get().then(snapshot => {
     questions = [];
-    snapshot.forEach(doc => {
-      questions.push({ id: doc.id, ...doc.data() });
-    });
+    snapshot.forEach(doc => questions.push({ id: doc.id, ...doc.data() }));
     showQuestion(0);
   });
 }
@@ -40,7 +36,6 @@ function loadQuestions() {
 function showQuestion(index) {
   currentIndex = index;
   const q = questions[index];
-
   container.innerHTML = "";
 
   const card = document.createElement("div");
@@ -54,6 +49,7 @@ function showQuestion(index) {
   const optionsDiv = document.createElement("div");
   optionsDiv.className = "options";
 
+  // mcq
   if (q.type === "mcq" && Array.isArray(q.options)) {
     q.options.forEach(opt => {
       const label = document.createElement("label");
@@ -62,13 +58,36 @@ function showQuestion(index) {
       optionsDiv.appendChild(label);
     });
     card.appendChild(optionsDiv);
-  } else if (q.type === "open") {
+  }
+
+  // multi
+  else if (q.type === "multi" && Array.isArray(q.options)) {
+    q.options.forEach(opt => {
+      const label = document.createElement("label");
+      const checked = (answers[q.id] || []).includes(opt) ? "checked" : "";
+      label.innerHTML = `<input type="checkbox" name="${q.id}" value="${opt}" ${checked}/> ${opt}`;
+      optionsDiv.appendChild(label);
+    });
+    card.appendChild(optionsDiv);
+  }
+
+  // open
+  else if (q.type === "open") {
     const textarea = document.createElement("textarea");
     textarea.name = q.id;
     textarea.rows = 4;
     textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
     textarea.value = answers[q.id] || "";
     card.appendChild(textarea);
+  }
+
+  // number
+  else if (q.type === "number") {
+    const input = document.createElement("input");
+    input.type = "number";
+    input.name = q.id;
+    input.value = answers[q.id] || "";
+    card.appendChild(input);
   }
 
   container.appendChild(card);
@@ -123,12 +142,21 @@ function saveAnswerAndMove(step) {
   if (q.type === "mcq") {
     const selected = form.querySelector(`input[name="${q.id}"]:checked`);
     if (selected) answers[q.id] = selected.value;
-  } else if (q.type === "open") {
+  }
+  else if (q.type === "multi") {
+    const selected = [...form.querySelectorAll(`input[name="${q.id}"]:checked`)];
+    answers[q.id] = selected.map(el => el.value);
+  }
+  else if (q.type === "open") {
     const textarea = form.querySelector(`textarea[name="${q.id}"]`);
     if (textarea) answers[q.id] = textarea.value.trim();
   }
+  else if (q.type === "number") {
+    const input = form.querySelector(`input[name="${q.id}"]`);
+    if (input) answers[q.id] = input.value;
+  }
 
-  showQuestion(currentIndex + step);
+  if (step !== 0) showQuestion(currentIndex + step);
 }
 
 // Progress bar
@@ -140,8 +168,6 @@ function updateProgress() {
 // Υποβολή απαντήσεων
 form.addEventListener("submit", (e) => {
   e.preventDefault();
-
-  // Σώζουμε την τελευταία απάντηση
   saveAnswerAndMove(0);
 
   const confirmSubmit = confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;");
