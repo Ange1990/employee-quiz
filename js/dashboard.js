@@ -2,6 +2,7 @@ const resultsBody = document.getElementById("results-body");
 const logoutBtn = document.getElementById("logout-btn");
 const exportBtn = document.getElementById("export-btn");
 const searchInput = document.getElementById("search-input");
+const manageBtn = document.getElementById("manage-questions-btn");
 
 let allResults = [];      // Αποθήκευση όλων των αποτελεσμάτων
 let allQuestions = {};    // Αποθήκευση ερωτήσεων με qId
@@ -25,6 +26,11 @@ logoutBtn.addEventListener("click", () => {
   auth.signOut().then(() => {
     window.location.href = "index.html";
   });
+});
+
+// Μετάβαση στη σελίδα διαχείρισης ερωτήσεων
+manageBtn.addEventListener("click", () => {
+  window.location.href = "questions.html";
 });
 
 // Φόρτωση όλων των ερωτήσεων
@@ -118,16 +124,14 @@ exportBtn.addEventListener("click", () => {
     const answersText = Object.entries(data.answers || {})
       .map(([qId, ans]) => {
         const questionText = allQuestions[qId] || qId;
-        return `${questionText}: ${ans.replace(/"/g,'""')}`; // Αντικατάσταση " με "" για CSV
+        return `${questionText}: ${ans.replace(/"/g,'""')}`;
       })
       .join("\r\n");
 
-    // Βάζουμε το κελί σε διπλά εισαγωγικά για σωστή εμφάνιση πολλαπλών γραμμών
     const row = [data.email, `"${answersText}"`, date].join(",");
     rows.push(row);
   });
 
-  // Προσθήκη UTF-8 BOM για σωστά ελληνικά
   const csvContent = "\uFEFF" + rows.join("\r\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -138,4 +142,3 @@ exportBtn.addEventListener("click", () => {
   a.click();
   document.body.removeChild(a);
 });
-
