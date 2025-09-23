@@ -13,12 +13,12 @@
     h1 { text-align: center; margin-bottom: 20px; color: #333; }
 
     button {
-      padding: 6px 12px;
+      padding: 8px 14px;
       border: none;
       border-radius: 6px;
       cursor: pointer;
       font-weight: 600;
-      margin: 3px;
+      margin: 5px;
     }
     #logout-btn { background: #ff4b2b; color: #fff; }
     #logout-btn:hover { background: #ff6a4d; }
@@ -28,8 +28,6 @@
     #add-btn:hover { background: #218838; }
     .delete-btn { background: #dc3545; color: #fff; }
     .delete-btn:hover { background: #c82333; }
-    .move-up-btn, .move-down-btn { background: #ffc107; color: #000; }
-    .move-up-btn:hover, .move-down-btn:hover { background: #e0a800; }
 
     form {
       background: #fff;
@@ -75,12 +73,6 @@
     .options-list {
       margin-top: 8px;
       padding-left: 20px;
-    }
-
-    .action-buttons {
-      margin-top: 8px;
-      display: flex;
-      gap: 5px;
     }
   </style>
 </head>
@@ -165,7 +157,6 @@
       else optionsWrapper.style.display="none";
     });
 
-    // Υποβολή ερώτησης
     form.addEventListener("submit", e=>{
       e.preventDefault();
       const text = textInput.value.trim();
@@ -189,18 +180,19 @@
           form.reset();
           optionsWrapper.style.display="none";
           optionsText.value="";
-          orderInput.value="1";
           loadQuestions();
         })
         .catch(err=>console.error("Σφάλμα Firebase:", err));
     });
 
-    // Φόρτωση ερωτήσεων με σωστή σειρά
+    // Φόρτωση ερωτήσεων
     function loadQuestions(){
-      db.collection("questions").orderBy("order").get()
+      db.collection("questions").get()
         .then(snapshot=>{
           questionsContainer.innerHTML="";
-          snapshot.forEach(doc=>{
+          // Ταξινόμηση με βάση το order
+          let docs = snapshot.docs.sort((a,b)=> (a.data().order || 0) - (b.data().order || 0));
+          docs.forEach(doc=>{
             const data = doc.data();
             const card = document.createElement("div");
             card.className = "question-card";
@@ -213,42 +205,16 @@
                 <span class="question-type">${data.type==="mcq"?"Πολλαπλής":data.type==="open"?"Ανοικτή":data.type==="yesno"?"Ναι/Όχι":"Αριθμητική"}</span>
               </div>
               <div>${optionsHTML}</div>
-              <div class="action-buttons">
-                <button class="move-up-btn">⬆️</button>
-                <button class="move-down-btn">⬇️</button>
-                <button class="delete-btn">Διαγραφή</button>
-              </div>
+              <button class="delete-btn">Διαγραφή</button>
             `;
-
-            // Κουμπιά πάνω/κάτω
-            card.querySelector(".move-up-btn").addEventListener("click", ()=>moveQuestion(doc.id, data.order, -1));
-            card.querySelector(".move-down-btn").addEventListener("click", ()=>moveQuestion(doc.id, data.order, 1));
-
-            // Διαγραφή
             card.querySelector(".delete-btn").addEventListener("click", ()=>{
               if(confirm("Να διαγραφεί η ερώτηση;")){
-                db.collection("questions").doc(doc.id).delete().then(()=>loadQuestions());
+                db.collection("questions").doc(doc.id).delete().then(()=>card.remove());
               }
             });
-
             questionsContainer.appendChild(card);
           });
         });
-    }
-
-    // Λειτουργία αλλαγής σειράς
-    function moveQuestion(docId, currentOrder, step){
-      const newOrder = currentOrder + step;
-      if(newOrder < 1) return;
-
-      // Εύρεση άλλης ερώτησης με το ίδιο order και swap
-      db.collection("questions").where("order","==",newOrder).get().then(snapshot=>{
-        if(!snapshot.empty){
-          const otherDocRef = snapshot.docs[0].ref;
-          otherDocRef.update({order: currentOrder});
-        }
-        db.collection("questions").doc(docId).update({order: newOrder}).then(loadQuestions);
-      });
     }
   </script>
 </body>
