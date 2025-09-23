@@ -7,7 +7,6 @@
     body { font-family: Arial, sans-serif; background:#f0f2f5; padding:20px; }
     h1 { text-align:center; margin-bottom:20px; }
 
-    /* Κουμπιά */
     button {
       padding:8px 14px;
       border:none;
@@ -25,7 +24,6 @@
     .delete-btn { background:#dc3545; color:#fff; }
     .delete-btn:hover { background:#c82333; }
 
-    /* Form */
     form {
       background:#fff;
       padding:20px;
@@ -40,18 +38,7 @@
       border:1px solid #ccc;
       border-radius:6px;
     }
-    .options-container input {
-      width:calc(100% - 50px);
-      display:inline-block;
-      margin-right:5px;
-    }
-    .options-container button {
-      display:inline-block;
-      padding:6px 10px;
-      font-size:12px;
-    }
 
-    /* Table */
     table {
       width:100%;
       border-collapse: collapse;
@@ -73,27 +60,24 @@
   <button id="logout-btn">Αποσύνδεση</button>
   <h1>Διαχείριση Ερωτήσεων</h1>
 
-  <!-- Φόρμα προσθήκης ερώτησης -->
   <form id="question-form">
-    <label for="text">Κείμενο Ερώτησης:</label>
-    <textarea id="text" required></textarea>
+    <label for="question-text">Κείμενο Ερώτησης:</label>
+    <textarea id="question-text" required></textarea>
 
-    <label for="type">Τύπος Ερώτησης:</label>
-    <select id="type" required>
+    <label for="question-type">Τύπος Ερώτησης:</label>
+    <select id="question-type">
       <option value="mcq">Πολλαπλής Επιλογής</option>
-      <option value="open">Ανοιχτή</option>
+      <option value="open">Ανοικτή</option>
     </select>
 
     <div id="options-wrapper" style="display:none;">
-      <label>Επιλογές:</label>
-      <div class="options-container" id="options-container"></div>
-      <button type="button" id="add-option-btn">+ Προσθήκη Επιλογής</button>
+      <label for="options-text">Επιλογές (μία ανά γραμμή):</label>
+      <textarea id="options-text"></textarea>
     </div>
 
     <button type="submit" id="add-btn">Προσθήκη Ερώτησης</button>
   </form>
 
-  <!-- Λίστα ερωτήσεων -->
   <table>
     <thead>
       <tr>
@@ -103,4 +87,108 @@
         <th>Ενέργειες</th>
       </tr>
     </thead>
-    <tbody id="question
+    <tbody id="questions-body"></tbody>
+  </table>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyD_MPxHrzLs2vd677t3Nr8vXKFtQEuLI2g",
+      authDomain: "quiz-aa480.firebaseapp.com",
+      projectId: "quiz-aa480",
+      storageBucket: "quiz-aa480.appspot.com",
+      messagingSenderId: "913659290274",
+      appId: "1:913659290274:web:412b6ca878f15d094f6dfb",
+      measurementId: "G-Q3X66T9MJF"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    const form = document.getElementById("question-form");
+    const textInput = document.getElementById("question-text");
+    const typeSelect = document.getElementById("question-type");
+    const optionsWrapper = document.getElementById("options-wrapper");
+    const optionsText = document.getElementById("options-text");
+    const questionsBody = document.getElementById("questions-body");
+    const logoutBtn = document.getElementById("logout-btn");
+    const backBtn = document.getElementById("back-btn");
+
+    // Έλεγχος αν CEO
+    auth.onAuthStateChanged(user => {
+      if(!user) window.location.href="index.html";
+      else if(user.email !== "nafpliotis@sspc.gr") {
+        alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
+        window.location.href="index.html";
+      } else {
+        loadQuestions();
+      }
+    });
+
+    // Logout
+    logoutBtn.addEventListener("click", ()=>auth.signOut().then(()=>window.location.href="index.html"));
+    backBtn.addEventListener("click", ()=>window.location.href="dashboard.html");
+
+    // Εμφάνιση επιλογών μόνο αν MCQ
+    typeSelect.addEventListener("change", ()=>{
+      if(typeSelect.value==="mcq") optionsWrapper.style.display="block";
+      else optionsWrapper.style.display="none";
+    });
+
+    // Υποβολή ερώτησης
+    form.addEventListener("submit", e=>{
+      e.preventDefault();
+      const text = textInput.value.trim();
+      const type = typeSelect.value;
+      if(!text) return alert("Πληκτρολόγησε το κείμενο της ερώτησης.");
+      let questionData = { text, type };
+      if(type==="mcq"){
+        const opts = optionsText.value.split("\n").map(o=>o.trim()).filter(Boolean);
+        if(opts.length<2) return alert("Δώσε τουλάχιστον 2 επιλογές.");
+        questionData.options = opts;
+      }
+
+      db.collection("questions").add(questionData)
+        .then(()=>{
+          alert("Η ερώτηση προστέθηκε!");
+          form.reset();
+          optionsWrapper.style.display="none";
+          optionsText.value="";
+          loadQuestions();
+        })
+        .catch(err=>console.error("Σφάλμα Firebase:", err));
+    });
+
+    // Φόρτωση ερωτήσεων
+    function loadQuestions(){
+      db.collection("questions").get()
+        .then(snapshot=>{
+          questionsBody.innerHTML="";
+          snapshot.forEach(doc=>{
+            const data = doc.data();
+            const tr = document.createElement("tr");
+            const optionsStr = data.type==="mcq" && data.options ? data.options.join(", ") : "-";
+            tr.innerHTML = `
+              <td>${data.text}</td>
+              <td>${data.type==="mcq"?"Πολλαπλής":"Ανοιχτή"}</td>
+              <td>${optionsStr}</td>
+              <td><button class="delete-btn">Διαγραφή</button></td>
+            `;
+            tr.querySelector(".delete-btn").addEventListener("click", ()=>{
+              if(confirm("Να διαγραφεί η ερώτηση;")){
+                db.collection("questions").doc(doc.id).delete().then(()=>tr.remove());
+              }
+            });
+            questionsBody.appendChild(tr);
+          });
+        });
+    }
+  </script>
+</body>
+</html>
