@@ -157,6 +157,7 @@
       else optionsWrapper.style.display="none";
     });
 
+    // Υποβολή ερώτησης
     form.addEventListener("submit", e=>{
       e.preventDefault();
       const text = textInput.value.trim();
@@ -180,19 +181,18 @@
           form.reset();
           optionsWrapper.style.display="none";
           optionsText.value="";
+          orderInput.value = "1";
           loadQuestions();
         })
         .catch(err=>console.error("Σφάλμα Firebase:", err));
     });
 
-    // Φόρτωση ερωτήσεων
+    // Φόρτωση ερωτήσεων με σωστή σειρά
     function loadQuestions(){
-      db.collection("questions").get()
+      db.collection("questions").orderBy("order").get()
         .then(snapshot=>{
           questionsContainer.innerHTML="";
-          // Ταξινόμηση με βάση το order
-          let docs = snapshot.docs.sort((a,b)=> (a.data().order || 0) - (b.data().order || 0));
-          docs.forEach(doc=>{
+          snapshot.forEach(doc=>{
             const data = doc.data();
             const card = document.createElement("div");
             card.className = "question-card";
