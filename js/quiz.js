@@ -63,8 +63,8 @@ function showQuestion(index) {
             optionsDiv.appendChild(label);
         });
         card.appendChild(optionsDiv);
-
-    } else if (q.type === "multi" && Array.isArray(q.options)) {
+    } 
+    else if (q.type === "multi" && Array.isArray(q.options)) {
         q.options.forEach(opt => {
             const label = document.createElement("label");
             const checked = (answers[q.id] || []).includes(opt) ? "checked" : "";
@@ -72,23 +72,24 @@ function showQuestion(index) {
             optionsDiv.appendChild(label);
         });
         card.appendChild(optionsDiv);
-
-    } else if (q.type === "open") {
+    } 
+    else if (q.type === "open") {
         const textarea = document.createElement("textarea");
         textarea.name = q.id;
         textarea.rows = 4;
         textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
         textarea.value = answers[q.id] || "";
         card.appendChild(textarea);
-
-    } else if (q.type === "number") {
+    } 
+    else if (q.type === "number") {
         const input = document.createElement("input");
         input.type = "number";
         input.name = q.id;
         input.value = answers[q.id] || "";
         card.appendChild(input);
-
-    } else if (q.type === "scale-stars") {
+    }
+    // --- Νέα ερώτηση scale-stars ---
+    else if (q.type === "scale-stars") {
         const starsWrapper = document.createElement("div");
         starsWrapper.style.textAlign = "center";
         starsWrapper.style.marginTop = "15px";
@@ -97,30 +98,39 @@ function showQuestion(index) {
         const selected = parseInt(answers[q.id]) || 0;
 
         const starsDiv = document.createElement("div");
-        starsDiv.style.fontSize = "36px";
-        starsDiv.style.color = "#FFD700";
-        starsDiv.style.cursor = "pointer";
+        starsDiv.style.display = "flex";
+        starsDiv.style.justifyContent = "space-between"; // από άκρη σε άκρη
+        starsDiv.style.maxWidth = "100%";
+        starsDiv.style.margin = "0 auto";
 
         for (let i = 1; i <= numStars; i++) {
             const star = document.createElement("span");
             star.textContent = i <= selected ? "★" : "☆";
             star.dataset.value = i;
+            star.style.fontSize = "60px";
+            star.style.color = "#FFD700";
+            star.style.cursor = "pointer";
+            star.style.transition = "transform 0.2s";
 
-            star.addEventListener("click", () => {
-                answers[q.id] = i;
-                showQuestion(currentIndex);
-            });
-
+            // Hover animation
             star.addEventListener("mouseover", () => {
                 for (let j = 0; j < numStars; j++) {
                     starsDiv.children[j].textContent = j < i ? "★" : "☆";
+                    starsDiv.children[j].style.transform = j < i ? "scale(1.3)" : "scale(1)";
                 }
             });
 
             star.addEventListener("mouseout", () => {
                 for (let j = 0; j < numStars; j++) {
-                    starsDiv.children[j].textContent = j < (answers[q.id] || 0) ? "★" : "☆";
+                    const sel = answers[q.id] || 0;
+                    starsDiv.children[j].textContent = j < sel ? "★" : "☆";
+                    starsDiv.children[j].style.transform = "scale(1)";
                 }
+            });
+
+            star.addEventListener("click", () => {
+                answers[q.id] = i;
+                showQuestion(currentIndex);
             });
 
             starsDiv.appendChild(star);
@@ -128,18 +138,19 @@ function showQuestion(index) {
 
         starsWrapper.appendChild(starsDiv);
 
-        // Αριθμοί 1-5 κάτω από τα αστεράκια
+        // Αριθμοί κάτω από τα αστεράκια
         const labelsDiv = document.createElement("div");
         labelsDiv.style.display = "flex";
-        labelsDiv.style.justifyContent = "center";
+        labelsDiv.style.justifyContent = "space-between";
         labelsDiv.style.marginTop = "5px";
-        labelsDiv.style.gap = "20px";
+        labelsDiv.style.color = "#fff";
+        labelsDiv.style.fontSize = "18px";
+        labelsDiv.style.maxWidth = "100%";
+        labelsDiv.style.margin = "0 auto";
 
         for (let i = 1; i <= numStars; i++) {
             const lbl = document.createElement("span");
             lbl.textContent = i;
-            lbl.style.fontSize = "16px";
-            lbl.style.color = "#fff";
             labelsDiv.appendChild(lbl);
         }
 
@@ -194,21 +205,17 @@ function saveAnswerAndMove(step) {
     if (q.type === "mcq") {
         const selected = form.querySelector(`input[name="${q.id}"]:checked`);
         if (selected) answers[q.id] = selected.value;
-
     } else if (q.type === "multi") {
         const selected = [...form.querySelectorAll(`input[name="${q.id}"]:checked`)];
         answers[q.id] = selected.map(el => el.value);
-
     } else if (q.type === "open") {
         const textarea = form.querySelector(`textarea[name="${q.id}"]`);
         if (textarea) answers[q.id] = textarea.value.trim();
-
     } else if (q.type === "number") {
         const input = form.querySelector(`input[name="${q.id}"]`);
         if (input) answers[q.id] = input.value;
-
     } else if (q.type === "scale-stars") {
-        // Η τιμή αποθηκεύεται με click στο showQuestion
+        // nothing needed, τα αστέρια αποθηκεύονται onClick
     }
 
     if (step !== 0) showQuestion(currentIndex + step);
