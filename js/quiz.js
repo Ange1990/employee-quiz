@@ -89,23 +89,26 @@ function showQuestion(index) {
         card.appendChild(input);
 
     } else if (q.type === "scale-stars") {
-        const starsDiv = document.createElement("div");
-        starsDiv.style.fontSize = "28px";
-        starsDiv.style.textAlign = "center";
-        starsDiv.style.marginTop = "10px";
+        const starsWrapper = document.createElement("div");
+        starsWrapper.style.textAlign = "center";
+        starsWrapper.style.marginTop = "15px";
 
         const numStars = 5;
         const selected = parseInt(answers[q.id]) || 0;
 
+        const starsDiv = document.createElement("div");
+        starsDiv.style.fontSize = "36px";
+        starsDiv.style.color = "#FFD700";
+        starsDiv.style.cursor = "pointer";
+
         for (let i = 1; i <= numStars; i++) {
             const star = document.createElement("span");
             star.textContent = i <= selected ? "★" : "☆";
-            star.style.cursor = "pointer";
             star.dataset.value = i;
 
             star.addEventListener("click", () => {
                 answers[q.id] = i;
-                showQuestion(currentIndex); // Επαναφόρτωση για να εμφανιστούν σωστά
+                showQuestion(currentIndex);
             });
 
             star.addEventListener("mouseover", () => {
@@ -123,7 +126,25 @@ function showQuestion(index) {
             starsDiv.appendChild(star);
         }
 
-        card.appendChild(starsDiv);
+        starsWrapper.appendChild(starsDiv);
+
+        // Αριθμοί 1-5 κάτω από τα αστεράκια
+        const labelsDiv = document.createElement("div");
+        labelsDiv.style.display = "flex";
+        labelsDiv.style.justifyContent = "center";
+        labelsDiv.style.marginTop = "5px";
+        labelsDiv.style.gap = "20px";
+
+        for (let i = 1; i <= numStars; i++) {
+            const lbl = document.createElement("span");
+            lbl.textContent = i;
+            lbl.style.fontSize = "16px";
+            lbl.style.color = "#fff";
+            labelsDiv.appendChild(lbl);
+        }
+
+        starsWrapper.appendChild(labelsDiv);
+        card.appendChild(starsWrapper);
     }
 
     container.appendChild(card);
@@ -187,7 +208,7 @@ function saveAnswerAndMove(step) {
         if (input) answers[q.id] = input.value;
 
     } else if (q.type === "scale-stars") {
-        // Δεν χρειάζεται, αποθηκεύεται κατά το click
+        // Η τιμή αποθηκεύεται με click στο showQuestion
     }
 
     if (step !== 0) showQuestion(currentIndex + step);
