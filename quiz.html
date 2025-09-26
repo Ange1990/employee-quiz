@@ -1,148 +1,163 @@
 <!DOCTYPE html>
 <html lang="el">
 <head>
-  <meta charset="UTF-8">
-  <title>Employee Quiz</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; font-family:'Poppins', sans-serif; }
+<meta charset="UTF-8">
+<title>Employee Quiz</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Poppins', sans-serif; }
 
-    body {
-      min-height: 100vh;
-      background: linear-gradient(135deg, #2575fc, #6a11cb);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-      position: relative;
-    }
+body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #2575fc, #6a11cb);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  position: relative;
+}
 
-    /* Fixed header */
-    #fixed-header {
-      position: fixed;
-      top: 10px;
-      right: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: rgba(0,0,0,0.4);
-      padding: 8px 14px;
-      border-radius: 12px;
-      color: #fff;
-      z-index: 1000;
-    }
+#fixed-header {
+  position: fixed;
+  top: 10px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0,0,0,0.4);
+  padding: 8px 14px;
+  border-radius: 12px;
+  color: #fff;
+  z-index: 1000;
+}
 
-    #logout-btn {
-      padding:6px 12px;
-      border:none;
-      border-radius:6px;
-      cursor:pointer;
-      background:#ff4b2b;
-      color:#fff;
-      font-weight:600;
-      transition:0.3s;
-    }
-    #logout-btn:hover { background:#ff6a4d; transform:scale(1.05); }
+#logout-btn {
+  padding:6px 12px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  background:#ff4b2b;
+  color:#fff;
+  font-weight:600;
+  transition:0.3s;
+}
+#logout-btn:hover { background:#ff6a4d; transform:scale(1.05); }
 
-    .quiz-container {
-      background: rgba(255,255,255,0.12);
-      padding: 40px;
-      border-radius: 18px;
-      box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-      width: 650px;
-      backdrop-filter: blur(12px);
-      color: #fff;
-      animation: fadeIn 0.8s ease;
-    }
+.quiz-container {
+  background: rgba(255,255,255,0.12);
+  padding: 40px;
+  border-radius: 18px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+  width: 650px;
+  backdrop-filter: blur(12px);
+  color: #fff;
+  animation: fadeIn 0.8s ease;
+}
 
-    h2 { text-align: center; margin-bottom: 25px; font-size: 32px; font-weight:600; }
+h2 { text-align: center; margin-bottom: 25px; font-size: 32px; font-weight:600; }
 
-    .progress-bar {
-      width: 100%; background: rgba(255,255,255,0.2);
-      border-radius: 10px; height: 12px; margin-bottom: 25px; overflow: hidden;
-    }
-    .progress { height: 100%; width: 0;
-      background: linear-gradient(to right, #ff416c, #ff4b2b);
-      border-radius: 10px; transition: width 0.4s ease; }
+.progress-bar {
+  width: 100%; background: rgba(255,255,255,0.2);
+  border-radius: 10px; height: 12px; margin-bottom: 25px; overflow: hidden;
+}
+.progress { height: 100%; width: 0;
+  background: linear-gradient(to right, #ff416c, #ff4b2b);
+  border-radius: 10px; transition: width 0.4s ease; }
 
-    .question-card {
-      background: rgba(255,255,255,0.18);
-      padding: 20px; border-radius: 15px;
-      margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.2);
-      animation: slideUp 0.6s ease;
-    }
+.question-card {
+  background: rgba(255,255,255,0.18);
+  padding: 20px; border-radius: 15px;
+  margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.2);
+  animation: slideUp 0.6s ease;
+}
 
-    .question-text { margin-bottom: 15px; font-size: 18px; font-weight: 500; }
+.question-text { margin-bottom: 15px; font-size: 18px; font-weight: 500; }
 
-    .options label {
-      display: flex; align-items: center; gap: 8px;
-      margin-bottom: 10px; cursor: pointer;
-      padding: 6px 10px; border-radius: 8px;
-      transition: background 0.3s;
-    }
-    .options label:hover { background: rgba(255,255,255,0.15); }
+.options label {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px; cursor: pointer;
+  padding: 6px 10px; border-radius: 8px;
+  transition: background 0.3s;
+}
+.options label:hover { background: rgba(255,255,255,0.15); }
 
-    .options input[type="radio"], .options input[type="checkbox"] {
-      accent-color: #ff416c; transform: scale(1.2);
-    }
+.options input[type="radio"], .options input[type="checkbox"] {
+  accent-color: #ff416c; transform: scale(1.2);
+}
 
-    textarea, input[type="number"] {
-      width: 100%; padding: 10px;
-      border-radius: 10px; border: none;
-      font-size: 16px;
-    }
+textarea, input[type="number"] {
+  width: 100%; padding: 10px;
+  border-radius: 10px; border: none;
+  font-size: 16px;
+}
 
-    .nav-btn {
-      padding: 12px 20px; border: none; border-radius: 10px;
-      font-size: 16px; font-weight: 600; cursor: pointer;
-      color: #fff; transition: all 0.3s ease;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-    }
-    .nav-btn.prev { background: linear-gradient(135deg, #6a11cb, #2575fc); }
-    .nav-btn.next { background: linear-gradient(135deg, #ff416c, #ff4b2b); }
-    .nav-btn.submit { background: linear-gradient(135deg, #00c6ff, #0072ff); }
+/* Navigation buttons */
+.nav-btn {
+  padding: 12px 20px; border: none; border-radius: 10px;
+  font-size: 16px; font-weight: 600; cursor: pointer;
+  color: #fff; transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+.nav-btn.prev { background: linear-gradient(135deg, #6a11cb, #2575fc); }
+.nav-btn.next { background: linear-gradient(135deg, #ff416c, #ff4b2b); }
+.nav-btn.submit { background: linear-gradient(135deg, #00c6ff, #0072ff); }
 
-    button[type="submit"] {
-      width: 100%; padding: 14px; border: none; border-radius: 12px;
-      background-image: linear-gradient(to right, #ff416c, #ff4b2b);
-      color: white; font-size: 18px; font-weight:600; cursor: pointer;
-      transition: 0.3s; margin-top: 20px;
-    }
+button[type="submit"] {
+  width: 100%; padding: 14px; border: none; border-radius: 12px;
+  background-image: linear-gradient(to right, #ff416c, #ff4b2b);
+  color: white; font-size: 18px; font-weight:600; cursor: pointer;
+  transition: 0.3s; margin-top: 20px;
+}
 
-    @keyframes fadeIn { from {opacity:0; transform:scale(0.95);} to {opacity:1; transform:scale(1);} }
-    @keyframes slideUp { from {opacity:0; transform:translateY(20px);} to {opacity:1; transform:translateY(0);} }
-  </style>
+/* Stars scale */
+.stars-wrapper { text-align:center; margin-top:15px; }
+.stars {
+  display:flex; justify-content:space-between; max-width:100%; margin:0 auto;
+}
+.stars span {
+  font-size:70px; cursor:pointer;
+  background: linear-gradient(45deg,#FFD700,#FFA500);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  text-shadow:0 2px 5px rgba(0,0,0,0.3);
+  transition: transform 0.2s;
+}
+.stars span:hover,
+.stars span.hovered { transform:scale(1.3); filter:drop-shadow(0 0 5px gold);}
+.stars span.selected { transform:scale(1.1); }
+
+.stars-labels {
+  display:flex; justify-content:space-between; margin-top:5px; font-size:20px; color:#fff;
+  max-width:100%; margin:0 auto;
+}
+
+@keyframes fadeIn { from {opacity:0; transform:scale(0.95);} to {opacity:1; transform:scale(1);} }
+@keyframes slideUp { from {opacity:0; transform:translateY(20px);} to {opacity:1; transform:translateY(0);} }
+
+</style>
 </head>
 <body>
 
-  <!-- Fixed header -->
-  <div id="fixed-header">
-    <span id="user-email">user@email.com</span>
-    <button id="logout-btn">Αποσύνδεση</button>
-  </div>
+<div id="fixed-header">
+  <span id="user-email">user@email.com</span>
+  <button id="logout-btn">Αποσύνδεση</button>
+</div>
 
-  <!-- Quiz container -->
-  <div class="quiz-container">
-    <h2>Ερωτηματολόγιο</h2>
+<div class="quiz-container">
+  <h2>Ερωτηματολόγιο</h2>
 
-    <!-- Progress bar -->
-    <div class="progress-bar"><div class="progress" id="progress"></div></div>
+  <div class="progress-bar"><div class="progress" id="progress"></div></div>
 
-    <form id="quiz-form">
-      <div id="questions-container"></div>
-      <button type="submit">Υποβολή Απαντήσεων</button>
-    </form>
-  </div>
+  <form id="quiz-form">
+    <div id="questions-container"></div>
+    <button type="submit">Υποβολή Απαντήσεων</button>
+  </form>
+</div>
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/quiz.js"></script>
 
-  <!-- Config -->
-  <script src="js/firebase-config.js"></script>
-
-  <!-- Quiz logic -->
-  <script src="js/quiz.js"></script>
 </body>
 </html>
