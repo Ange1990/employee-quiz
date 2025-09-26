@@ -23,12 +23,12 @@ logoutBtn.addEventListener("click", () => {
   auth.signOut().then(() => window.location.href = "index.html");
 });
 
-// Φόρτωση ερωτήσεων
+// Φόρτωση ερωτήσεων από Firestore
 function loadQuestions() {
-  db.collection("questions").get().then(snapshot => {
+  db.collection("questions").orderBy("order").get().then(snapshot => {
     questions = [];
     snapshot.forEach(doc => questions.push({ id: doc.id, ...doc.data() }));
-    showQuestion(0);
+    if(questions.length > 0) showQuestion(0);
   });
 }
 
@@ -49,7 +49,7 @@ function showQuestion(index) {
   const optionsDiv = document.createElement("div");
   optionsDiv.className = "options";
 
-  // mcq
+  // MCQ
   if (q.type === "mcq" && Array.isArray(q.options)) {
     q.options.forEach(opt => {
       const label = document.createElement("label");
@@ -60,7 +60,7 @@ function showQuestion(index) {
     card.appendChild(optionsDiv);
   }
 
-  // multi
+  // Multi-select
   else if (q.type === "multi" && Array.isArray(q.options)) {
     q.options.forEach(opt => {
       const label = document.createElement("label");
@@ -71,7 +71,7 @@ function showQuestion(index) {
     card.appendChild(optionsDiv);
   }
 
-  // open
+  // Open-ended
   else if (q.type === "open") {
     const textarea = document.createElement("textarea");
     textarea.name = q.id;
@@ -81,13 +81,75 @@ function showQuestion(index) {
     card.appendChild(textarea);
   }
 
-  // number
+  // Number input
   else if (q.type === "number") {
     const input = document.createElement("input");
     input.type = "number";
     input.name = q.id;
     input.value = answers[q.id] || "";
     card.appendChild(input);
+  }
+
+  // Scale 1-5 slider με animated tooltip
+  else if (q.type === "scale") {
+    const scaleWrapper = document.createElement("div");
+    scaleWrapper.style.position = "relative";
+    scaleWrapper.style.width = "100%";
+    scaleWrapper.style.marginTop = "20px";
+
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.name = q.id;
+    slider.min = 1;
+    slider.max = 5;
+    slider.step = 1;
+    slider.value = answers[q.id] || 3;
+    slider.style.width = "100%";
+    slider.style.height = "12px";
+    slider.style.borderRadius = "6px";
+    slider.style.appearance = "none";
+    slider.style.background = getSliderGradient(slider.value);
+
+    const tooltip = document.createElement("div");
+    tooltip.textContent = slider.value;
+    tooltip.style.position = "absolute";
+    tooltip.style.top = "-30px";
+    tooltip.style.padding = "5px 10px";
+    tooltip.style.borderRadius = "6px";
+    tooltip.style.backgroundColor = getTooltipColor(slider.value);
+    tooltip.style.color = "#fff";
+    tooltip.style.fontWeight = "600";
+    tooltip.style.transform = "translateX(-50%)";
+    tooltip.style.transition = "all 0.2s ease";
+
+    updateTooltipPosition(slider, tooltip);
+
+    slider.addEventListener("input", () => {
+      tooltip.textContent = slider.value;
+      slider.style.background = getSliderGradient(slider.value);
+      tooltip.style.backgroundColor = getTooltipColor(slider.value);
+      updateTooltipPosition(slider, tooltip);
+    });
+
+    scaleWrapper.appendChild(tooltip);
+    scaleWrapper.appendChild(slider);
+    card.appendChild(scaleWrapper);
+
+    function getSliderGradient(val) {
+      const percent = ((val - 1) / 4) * 100;
+      return `linear-gradient(to right, #ff4b2b ${percent}%, #ffd700 ${percent}%, #00c853 ${percent}%)`;
+    }
+
+    function getTooltipColor(val) {
+      if (val <= 2) return "#ff4b2b";
+      if (val == 3) return "#ffd700";
+      return "#00c853";
+    }
+
+    function updateTooltipPosition(slider, tooltip) {
+      const percent = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+      tooltip.style.left = `${percent}%`;
+    }
   }
 
   container.appendChild(card);
@@ -97,15 +159,15 @@ function showQuestion(index) {
   updateSubmitButton();
 }
 
-// Κουμπιά πλοήγησης
+// Navigation buttons
 function renderNavigation() {
-  let nav = document.createElement("div");
+  const nav = document.createElement("div");
   nav.style.display = "flex";
   nav.style.justifyContent = "space-between";
   nav.style.marginTop = "25px";
 
   if (currentIndex > 0) {
-    let prevBtn = document.createElement("button");
+    const prevBtn = document.createElement("button");
     prevBtn.type = "button";
     prevBtn.textContent = "⬅ Προηγούμενο";
     prevBtn.className = "nav-btn prev";
@@ -114,7 +176,7 @@ function renderNavigation() {
   }
 
   if (currentIndex < questions.length - 1) {
-    let nextBtn = document.createElement("button");
+    const nextBtn = document.createElement("button");
     nextBtn.type = "button";
     nextBtn.textContent = "Επόμενο ➡";
     nextBtn.className = "nav-btn next";
@@ -128,32 +190,29 @@ function renderNavigation() {
 // Εμφάνιση/απόκρυψη submit button
 function updateSubmitButton() {
   const submitBtn = form.querySelector('button[type="submit"]');
-  if (currentIndex === questions.length - 1) {
-    submitBtn.style.display = "block";
-  } else {
-    submitBtn.style.display = "none";
-  }
+  if (currentIndex === questions.length - 1) submitBtn.style.display = "block";
+  else submitBtn.style.display = "none";
 }
 
-// Αποθήκευση απάντησης πριν μετάβαση
+// Αποθήκευση απάντησης πριν μεταβούμε στην επόμενη ερώτηση
 function saveAnswerAndMove(step) {
   const q = questions[currentIndex];
 
   if (q.type === "mcq") {
     const selected = form.querySelector(`input[name="${q.id}"]:checked`);
     if (selected) answers[q.id] = selected.value;
-  }
-  else if (q.type === "multi") {
+  } else if (q.type === "multi") {
     const selected = [...form.querySelectorAll(`input[name="${q.id}"]:checked`)];
-    answers[q.id] = selected.map(el => el.value);
-  }
-  else if (q.type === "open") {
+    answers[q.id] = selected.length ? selected.map(el => el.value) : [];
+  } else if (q.type === "open") {
     const textarea = form.querySelector(`textarea[name="${q.id}"]`);
     if (textarea) answers[q.id] = textarea.value.trim();
-  }
-  else if (q.type === "number") {
+  } else if (q.type === "number") {
     const input = form.querySelector(`input[name="${q.id}"]`);
-    if (input) answers[q.id] = input.value;
+    if (input) answers[q.id] = parseFloat(input.value);
+  } else if (q.type === "scale") {
+    const input = form.querySelector(`input[name="${q.id}"]`);
+    if (input) answers[q.id] = parseInt(input.value);
   }
 
   if (step !== 0) showQuestion(currentIndex + step);
@@ -161,6 +220,7 @@ function saveAnswerAndMove(step) {
 
 // Progress bar
 function updateProgress() {
+  if (questions.length === 0) return;
   const percent = ((currentIndex + 1) / questions.length) * 100;
   progressBar.style.width = `${percent}%`;
 }
@@ -170,8 +230,7 @@ form.addEventListener("submit", (e) => {
   e.preventDefault();
   saveAnswerAndMove(0);
 
-  const confirmSubmit = confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;");
-  if (!confirmSubmit) return;
+  if (!confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;")) return;
 
   const user = auth.currentUser;
   if (user) {
