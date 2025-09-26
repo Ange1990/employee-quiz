@@ -84,6 +84,25 @@ function showQuestion(index) {
         input.name = q.id;
         input.value = answers[q.id] || "";
         card.appendChild(input);
+    } else if (q.type === "scale") {
+        const scaleWrapper = document.createElement("div");
+        scaleWrapper.style.marginTop = "20px";
+
+        const label = document.createElement("label");
+        label.textContent = "Επίλεξε τιμή από 1 έως 5:";
+        scaleWrapper.appendChild(label);
+
+        const slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = 1;
+        slider.max = 5;
+        slider.step = 1;
+        slider.name = q.id;
+        slider.value = answers[q.id] || 3; // default στο 3
+        slider.style.width = "100%";
+        scaleWrapper.appendChild(slider);
+
+        card.appendChild(scaleWrapper);
     }
 
     container.appendChild(card);
@@ -142,6 +161,9 @@ function saveAnswerAndMove(step) {
     } else if (q.type === "number") {
         const input = form.querySelector(`input[name="${q.id}"]`);
         if (input) answers[q.id] = input.value;
+    } else if (q.type === "scale") {
+        const slider = form.querySelector(`input[name="${q.id}"]`);
+        if (slider) answers[q.id] = parseInt(slider.value);
     }
 
     if (step !== 0) showQuestion(currentIndex + step);
