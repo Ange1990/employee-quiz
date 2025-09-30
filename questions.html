@@ -18,22 +18,20 @@
 
   form { background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.1); margin-bottom:20px; max-width:700px; margin-left:auto; margin-right:auto; }
   input, select, textarea { width:100%; padding:8px; margin:8px 0; border:1px solid #ccc; border-radius:6px; }
-  
-  .question-card { 
-    background:#fff; padding:15px; margin-bottom:12px; border-radius:10px; 
-    box-shadow:0 4px 10px rgba(0,0,0,0.1); max-width:700px; margin-left:auto; margin-right:auto; 
-    cursor:grab; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
+
+  .question-card {
+    background:#fff; padding:15px; margin-bottom:12px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1);
+    max-width:700px; margin-left:auto; margin-right:auto; cursor:grab; display:flex; align-items:center; justify-content:space-between; gap:10px;
   }
-  .question-text { flex:1; margin-right:10px; word-break:break-word; }
-  .question-type { font-weight:600; color:#555; margin-right:10px; }
+  .question-text { flex:1; word-break:break-word; }
+  .question-type { font-weight:600; color:#555; min-width:80px; }
+  .question-order { font-weight:600; color:#333; min-width:70px; text-align:center; }
   .options-list { margin-top:8px; padding-left:20px; font-size:14px; }
+  .action-btn { padding:6px 10px; border:none; border-radius:6px; font-weight:600; cursor:pointer; }
+  .edit-btn { background:#ffc107; color:#fff; }
+  .edit-btn:hover { background:#e0a800; }
   .delete-btn { background:#dc3545; color:#fff; }
   .delete-btn:hover { background:#c82333; }
-  .edit-btn { background:#007bff; color:#fff; }
-  .edit-btn:hover { background:#0056b3; }
-  .save-btn { background:#28a745; color:#fff; margin-left:5px; }
-  .save-btn:hover { background:#218838; }
-  .order-input { width:60px; margin-left:10px; }
 </style>
 </head>
 <body>
@@ -77,7 +75,6 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// DOM
 const form = document.getElementById("question-form");
 const textInput = document.getElementById("question-text");
 const typeSelect = document.getElementById("question-type");
@@ -86,58 +83,76 @@ const logoutBtn = document.getElementById("logout-btn");
 const backBtn = document.getElementById("back-btn");
 const saveOrderBtn = document.getElementById("save-order-btn");
 
-// Έλεγχος CEO
+// --- Έλεγχος CEO ---
 auth.onAuthStateChanged(user=>{
   if(!user) window.location.href="index.html";
-  else if(user.email!=="nafpliotis@sspc.gr") { alert("Δεν έχετε πρόσβαση"); window.location.href="index.html"; }
+  else if(user.email!=="nafpliotis@sspc.gr"){ alert("Δεν έχετε πρόσβαση"); window.location.href="index.html"; }
   else loadQuestions();
 });
 
-// Logout
 logoutBtn.addEventListener("click", ()=>auth.signOut().then(()=>window.location.href="index.html"));
-backBtn.addEventListener("click", ()=>window.location.href="dashboard.html"));
+backBtn.addEventListener("click", ()=>window.location.href="dashboard.html");
 
-// Προσθήκη νέας ερώτησης
+// --- Προσθήκη ή Επεξεργασία ---
+let editId = null;
 form.addEventListener("submit", e=>{
   e.preventDefault();
   const text = textInput.value.trim();
   const type = typeSelect.value;
   if(!text) return alert("Πληκτρολόγησε κείμενο.");
 
+  if(editId){
+    db.collection("questions").doc(editId).update({ text, type })
+      .then(()=>{ editId=null; form.reset(); loadQuestions(); });
+    return;
+  }
+
   db.collection("questions").orderBy("order","desc").limit(1).get()
     .then(snapshot=>{
       let maxOrder=0;
-      snapshot.forEach(doc=>{ maxOrder=doc.data().order||0; });
-      const questionData={ text, type, order:maxOrder+1 };
-      return db.collection("questions").add(questionData);
+      snapshot.forEach(doc=>{ maxOrder = doc.data().order || 0; });
+      return db.collection("questions").add({ text, type, order: maxOrder+1 });
     })
     .then(()=>{ form.reset(); loadQuestions(); })
     .catch(err=>console.error(err));
 });
 
-// Φόρτωση ερωτήσεων
+// --- Φόρτωση ερωτήσεων ---
 function loadQuestions(){
   db.collection("questions").orderBy("order").get()
     .then(snapshot=>{
       questionsContainer.innerHTML="";
       snapshot.docs.forEach(doc=>{
-        const data=doc.data();
-        const card=document.createElement("div");
+        const data = doc.data();
+        const card = document.createElement("div");
         card.className="question-card";
         card.draggable=true;
-        card.dataset.id=doc.id;
-        card.dataset.order=data.order;
+        card.dataset.id = doc.id;
+        card.dataset.order = data.order;
 
-        const textDiv=document.createElement("div");
+        const textDiv = document.createElement("div");
         textDiv.className="question-text";
-        textDiv.innerHTML=`${data.text} <br><small>Σειρά: ${data.order}</small>`;
+        textDiv.textContent = data.text;
 
-        const typeDiv=document.createElement("div");
+        const typeDiv = document.createElement("div");
         typeDiv.className="question-type";
-        typeDiv.textContent=data.type==="open"?"Ανοικτή":"Αστεράκια";
+        typeDiv.textContent = data.type==="open"?"Ανοικτή":"Αστεράκια";
 
-        const delBtn=document.createElement("button");
-        delBtn.className="delete-btn";
+        const orderSpan = document.createElement("span");
+        orderSpan.className="question-order";
+        orderSpan.textContent = `Σειρά: ${data.order}`;
+
+        const editBtn = document.createElement("button");
+        editBtn.className="action-btn edit-btn";
+        editBtn.textContent="Επεξεργασία";
+        editBtn.addEventListener("click", ()=>{
+          textInput.value = data.text;
+          typeSelect.value = data.type;
+          editId = doc.id;
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.className="action-btn delete-btn";
         delBtn.textContent="Διαγραφή";
         delBtn.addEventListener("click", ()=>{
           if(confirm("Να διαγραφεί η ερώτηση;")){
@@ -145,33 +160,22 @@ function loadQuestions(){
           }
         });
 
-        const editBtn=document.createElement("button");
-        editBtn.className="edit-btn";
-        editBtn.textContent="Επεξεργασία";
-        editBtn.addEventListener("click", ()=>{
-          const newText=prompt("Επεξεργασία κειμένου:", data.text);
-          if(newText!==null){
-            const newType=prompt("Τύπος (open/scale-stars):", data.type);
-            const newOrder=parseInt(prompt("Σειρά:", data.order)) || data.order;
-            db.collection("questions").doc(doc.id).update({ text:newText, type:newType, order:newOrder })
-              .then(()=>loadQuestions());
-          }
-        });
-
         card.appendChild(textDiv);
         card.appendChild(typeDiv);
         card.appendChild(editBtn);
         card.appendChild(delBtn);
+        card.appendChild(orderSpan);
+
         questionsContainer.appendChild(card);
       });
       enableDragDrop();
     });
 }
 
-// Drag & Drop
+// --- Drag & Drop ---
 function enableDragDrop(){
-  let dragSrcEl=null;
-  const cards=questionsContainer.querySelectorAll(".question-card");
+  let dragSrcEl = null;
+  const cards = questionsContainer.querySelectorAll(".question-card");
   cards.forEach(card=>{
     card.addEventListener("dragstart", e=>{ dragSrcEl=card; e.dataTransfer.effectAllowed="move"; });
     card.addEventListener("dragover", e=>{ e.preventDefault(); e.dataTransfer.dropEffect="move"; });
@@ -188,15 +192,14 @@ function enableDragDrop(){
   });
 }
 
-// Αποθήκευση σειράς
+// --- Αποθήκευση σειράς ---
 saveOrderBtn.addEventListener("click", ()=>{
-  const cards=questionsContainer.querySelectorAll(".question-card");
+  const cards = questionsContainer.querySelectorAll(".question-card");
   cards.forEach((card,i)=>{
-    const id=card.dataset.id;
+    const id = card.dataset.id;
     card.dataset.order=i+1;
-    const textDiv=card.querySelector(".question-text");
-    const textContent=textDiv.textContent.split("Σειρά:")[0].trim();
-    textDiv.innerHTML=`${textContent} <br><small>Σειρά: ${i+1}</small>`;
+    const orderSpan = card.querySelector(".question-order");
+    orderSpan.textContent=`Σειρά: ${i+1}`;
     db.collection("questions").doc(id).update({ order:i+1 });
   });
   alert("Η σειρά αποθηκεύτηκε!");
