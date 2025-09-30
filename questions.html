@@ -4,19 +4,82 @@
 <meta charset="UTF-8">
 <title>Διαχείριση Ερωτήσεων</title>
 <style>
-body { font-family:'Poppins',sans-serif; background:#f0f2f5; padding:20px; }
-h1 { text-align:center; margin-bottom:20px; color:#333; }
-button { padding:8px 14px; border:none; border-radius:6px; cursor:pointer; font-weight:600; margin:5px; }
-#logout-btn { background:#ff4b2b;color:#fff; } #logout-btn:hover { background:#ff6a4d; }
-#back-btn { background:#007bff;color:#fff; } #back-btn:hover { background:#0056b3; }
-#add-btn { background:#28a745;color:#fff; } #add-btn:hover { background:#218838; }
-#save-order-btn { background:#ffc107;color:#fff; } #save-order-btn:hover { background:#e0a800; }
-.delete-btn { background:#dc3545;color:#fff; } .delete-btn:hover { background:#c82333; }
-form { background:#fff;padding:20px;border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.1); max-width:700px;margin:auto; margin-bottom:20px; }
-textarea { width:100%; padding:8px; margin:8px 0; border:1px solid #ccc; border-radius:6px; }
-.question-card { background:#fff;padding:15px;margin-bottom:12px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.1); max-width:700px;margin:auto; cursor:grab; }
-.question-header { display:flex; justify-content:space-between; align-items:center; }
-.question-type { font-weight:600; color:#555; }
+body {
+  font-family: 'Poppins', sans-serif;
+  background: #f0f2f5;
+  padding: 20px;
+}
+
+h1 { text-align: center; margin-bottom: 20px; color: #333; }
+
+button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  margin: 5px;
+}
+#logout-btn { background: #ff4b2b; color: #fff; }
+#logout-btn:hover { background: #ff6a4d; }
+#back-btn { background: #007bff; color: #fff; }
+#back-btn:hover { background: #0056b3; }
+#add-btn { background: #28a745; color: #fff; }
+#add-btn:hover { background: #218838; }
+#save-order-btn { background: #6f42c1; color: #fff; }
+#save-order-btn:hover { background: #563d7c; }
+.delete-btn { background: #dc3545; color: #fff; }
+.delete-btn:hover { background: #c82333; }
+
+form {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+#questions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.question-card {
+  background: #fff;
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: grab;
+  transition: transform 0.2s;
+}
+.question-card.dragging { opacity: 0.5; transform: scale(0.98); }
+
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.question-text { font-weight: 600; flex: 1; word-break: break-word; }
+.question-type { font-weight: 500; color: #555; white-space: nowrap; }
+
+.options-list { margin-top: 6px; padding-left: 20px; font-size: 15px; }
+
 </style>
 </head>
 <body>
@@ -27,12 +90,12 @@ textarea { width:100%; padding:8px; margin:8px 0; border:1px solid #ccc; border-
 
 <form id="question-form">
   <label for="question-text">Κείμενο Ερώτησης:</label>
-  <textarea id="question-text" required></textarea>
+  <textarea id="question-text" required placeholder="Γράψε την ερώτηση..."></textarea>
 
   <label for="question-type">Τύπος Ερώτησης:</label>
   <select id="question-type">
-    <option value="open">Ανοικτή</option>
-    <option value="scale-stars">Αστεράκια 1-5</option>
+    <option value="open">Ανοικτή (αναπτυξιακή)</option>
+    <option value="scale-stars">Αστεράκια (scale-stars)</option>
   </select>
 
   <button type="submit" id="add-btn">Προσθήκη Ερώτησης</button>
@@ -73,26 +136,26 @@ auth.onAuthStateChanged(user => {
   else if(user.email!=="nafpliotis@sspc.gr") {
     alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
     window.location.href="index.html";
-  } else { loadQuestions(); }
+  } else loadQuestions();
 });
 
 logoutBtn.addEventListener("click", ()=>auth.signOut().then(()=>window.location.href="index.html"));
-backBtn.addEventListener("click", ()=>window.location.href="dashboard.html");
+backBtn.addEventListener("click", ()=>window.location.href="dashboard.html"));
 
-// --- Προσθήκη νέας ερώτησης ---
+let draggedCard = null;
+
 form.addEventListener("submit", async e=>{
   e.preventDefault();
   const text = textInput.value.trim();
   const type = typeSelect.value;
-  if(!text) return alert("Πληκτρολόγησε το κείμενο της ερώτησης.");
+  if(!text) return alert("Πληκτρολόγησε την ερώτηση.");
 
-  // Αυτόματη ανάθεση order
-  const snapshot = await db.collection("questions").get();
-  const maxOrder = snapshot.docs.reduce((max,doc)=>(doc.data().order||0)>max ? doc.data().order||0 : max, 0);
-  const order = maxOrder + 1;
+  // Υπολογισμός order: μεγαλύτερο +1
+  const snapshot = await db.collection("questions").orderBy("order","desc").limit(1).get();
+  let newOrder = 1;
+  if(!snapshot.empty) newOrder = (snapshot.docs[0].data().order||0)+1;
 
-  await db.collection("questions").add({ text, type, order });
-  alert("Η ερώτηση προστέθηκε!");
+  await db.collection("questions").add({ text, type, order: newOrder });
   form.reset();
   loadQuestions();
 });
@@ -100,16 +163,17 @@ form.addEventListener("submit", async e=>{
 // --- Φόρτωση ερωτήσεων ---
 async function loadQuestions(){
   let snapshot = await db.collection("questions").get();
-  // Ορισμός order για υπάρχουσες χωρίς order
+  // Προσθήκη order σε όσα δεν έχουν
   for(let doc of snapshot.docs){
     if(doc.data().order === undefined){
       await doc.ref.update({ order: snapshot.docs.indexOf(doc)+1 });
     }
   }
-
   snapshot = await db.collection("questions").get();
-  questionsContainer.innerHTML="";
+  questionsContainer.innerHTML = "";
+
   const docs = snapshot.docs.sort((a,b)=>(a.data().order||0)-(b.data().order||0));
+
   docs.forEach(doc=>{
     const data = doc.data();
     const card = document.createElement("div");
@@ -117,16 +181,18 @@ async function loadQuestions(){
     card.dataset.id = doc.id;
     card.innerHTML=`
       <div class="question-header">
-        <span>${data.text}</span>
+        <span class="question-text">${data.text}</span>
         <span class="question-type">${data.type==="open"?"Ανοικτή":"Αστεράκια"} | Σειρά: ${data.order}</span>
       </div>
       <button class="delete-btn">Διαγραφή</button>
     `;
-    card.querySelector(".delete-btn").addEventListener("click", ()=>{
+    card.querySelector(".delete-btn").addEventListener("click", async ()=>{
       if(confirm("Να διαγραφεί η ερώτηση;")){
-        db.collection("questions").doc(doc.id).delete().then(()=>card.remove());
+        await db.collection("questions").doc(doc.id).delete();
+        card.remove();
       }
     });
+
     addDragAndDrop(card);
     questionsContainer.appendChild(card);
   });
@@ -135,15 +201,29 @@ async function loadQuestions(){
 // --- Drag & Drop ---
 function addDragAndDrop(card){
   card.draggable = true;
-  card.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain", card.dataset.id); card.style.opacity="0.5"; });
-  card.addEventListener("dragend", e=>{ card.style.opacity="1"; });
-  card.addEventListener("dragover", e=>{ e.preventDefault(); });
+
+  card.addEventListener("dragstart", e=>{
+    draggedCard = card;
+    card.classList.add("dragging");
+  });
+  card.addEventListener("dragend", e=>{
+    draggedCard = null;
+    card.classList.remove("dragging");
+  });
+  card.addEventListener("dragover", e=>{
+    e.preventDefault();
+  });
   card.addEventListener("drop", e=>{
     e.preventDefault();
-    const draggedId = e.dataTransfer.getData("text/plain");
-    const draggedCard = document.querySelector(`[data-id='${draggedId}']`);
     if(draggedCard && draggedCard !== card){
       questionsContainer.insertBefore(draggedCard, card.nextSibling);
+
+      // Προσωρινή ενημέρωση σειρών στο UI
+      Array.from(questionsContainer.children).forEach((c,i)=>{
+        const typeSpan = c.querySelector(".question-type");
+        const text = c.querySelector(".question-text").textContent;
+        typeSpan.textContent = `${c.dataset.type==="open"?"Ανοικτή":"Αστεράκια"} | Σειρά: ${i+1}`;
+      });
     }
   });
 }
