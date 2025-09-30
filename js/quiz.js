@@ -25,13 +25,23 @@ logoutBtn.addEventListener("click", () => {
     auth.signOut().then(() => window.location.href = "index.html");
 });
 
-// --- Φόρτωση ερωτήσεων από Firestore ---
+// --- Φόρτωση ερωτήσεων από Firestore με ταξινόμηση order ---
 function loadQuestions() {
-    db.collection("questions").get()
+    db.collection("questions").orderBy("order").get()
         .then(snapshot => {
             questions = [];
-            snapshot.forEach(doc => questions.push({ id: doc.id, ...doc.data() }));
-            showQuestion(0);
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                // Μόνο open και scale-stars
+                if (data.type === "open" || data.type === "scale-stars") {
+                    questions.push({ id: doc.id, ...data });
+                }
+            });
+            if (questions.length === 0) {
+                container.innerHTML = "<h2>Δεν υπάρχουν ερωτήσεις διαθέσιμες.</h2>";
+            } else {
+                showQuestion(0);
+            }
         })
         .catch(err => console.error("Σφάλμα φόρτωσης ερωτήσεων:", err));
 }
@@ -44,6 +54,7 @@ function showQuestion(index) {
 
     const card = document.createElement("div");
     card.className = "question-card";
+    card.style.minHeight = "180px"; // Σταθερό ύψος για όλες τις κάρτες
 
     // Κείμενο ερώτησης
     const qText = document.createElement("div");
@@ -52,28 +63,7 @@ function showQuestion(index) {
     card.appendChild(qText);
 
     // Δημιουργία επιλογών
-    const optionsDiv = document.createElement("div");
-    optionsDiv.className = "options";
-
-    if (q.type === "mcq" && Array.isArray(q.options)) {
-        q.options.forEach(opt => {
-            const label = document.createElement("label");
-            const checked = answers[q.id] === opt ? "checked" : "";
-            label.innerHTML = `<input type="radio" name="${q.id}" value="${opt}" ${checked}/> ${opt}`;
-            optionsDiv.appendChild(label);
-        });
-        card.appendChild(optionsDiv);
-    } 
-    else if (q.type === "multi" && Array.isArray(q.options)) {
-        q.options.forEach(opt => {
-            const label = document.createElement("label");
-            const checked = (answers[q.id] || []).includes(opt) ? "checked" : "";
-            label.innerHTML = `<input type="checkbox" name="${q.id}" value="${opt}" ${checked}/> ${opt}`;
-            optionsDiv.appendChild(label);
-        });
-        card.appendChild(optionsDiv);
-    } 
-    else if (q.type === "open") {
+    if (q.type === "open") {
         const textarea = document.createElement("textarea");
         textarea.name = q.id;
         textarea.rows = 4;
@@ -81,53 +71,36 @@ function showQuestion(index) {
         textarea.value = answers[q.id] || "";
         card.appendChild(textarea);
     } 
-    else if (q.type === "number") {
-        const input = document.createElement("input");
-        input.type = "number";
-        input.name = q.id;
-        input.value = answers[q.id] || "";
-        card.appendChild(input);
-    }
-    // --- Νέα ερώτηση scale-stars ---
     else if (q.type === "scale-stars") {
         const starsWrapper = document.createElement("div");
-        starsWrapper.style.textAlign = "center";
-        starsWrapper.style.marginTop = "15px";
+        starsWrapper.className = "stars-wrapper";
 
         const numStars = 5;
         const selected = parseInt(answers[q.id]) || 0;
 
         const starsDiv = document.createElement("div");
-        starsDiv.style.display = "flex";
-        starsDiv.style.justifyContent = "space-between"; // από άκρη σε άκρη
-        starsDiv.style.maxWidth = "100%";
-        starsDiv.style.margin = "0 auto";
+        starsDiv.className = "stars";
 
         for (let i = 1; i <= numStars; i++) {
             const star = document.createElement("span");
             star.textContent = i <= selected ? "★" : "☆";
             star.dataset.value = i;
-            star.style.fontSize = "60px";
-            star.style.color = "#FFD700";
-            star.style.cursor = "pointer";
-            star.style.transition = "transform 0.2s";
-
-            // Hover animation
+            star.className = i <= selected ? "selected" : "";
+            
+            // Hover effect
             star.addEventListener("mouseover", () => {
                 for (let j = 0; j < numStars; j++) {
                     starsDiv.children[j].textContent = j < i ? "★" : "☆";
                     starsDiv.children[j].style.transform = j < i ? "scale(1.3)" : "scale(1)";
                 }
             });
-
             star.addEventListener("mouseout", () => {
+                const sel = answers[q.id] || 0;
                 for (let j = 0; j < numStars; j++) {
-                    const sel = answers[q.id] || 0;
                     starsDiv.children[j].textContent = j < sel ? "★" : "☆";
                     starsDiv.children[j].style.transform = "scale(1)";
                 }
             });
-
             star.addEventListener("click", () => {
                 answers[q.id] = i;
                 showQuestion(currentIndex);
@@ -140,14 +113,7 @@ function showQuestion(index) {
 
         // Αριθμοί κάτω από τα αστεράκια
         const labelsDiv = document.createElement("div");
-        labelsDiv.style.display = "flex";
-        labelsDiv.style.justifyContent = "space-between";
-        labelsDiv.style.marginTop = "5px";
-        labelsDiv.style.color = "#fff";
-        labelsDiv.style.fontSize = "18px";
-        labelsDiv.style.maxWidth = "100%";
-        labelsDiv.style.margin = "0 auto";
-
+        labelsDiv.className = "stars-labels";
         for (let i = 1; i <= numStars; i++) {
             const lbl = document.createElement("span");
             lbl.textContent = i;
@@ -202,21 +168,11 @@ function updateSubmitButton() {
 function saveAnswerAndMove(step) {
     const q = questions[currentIndex];
 
-    if (q.type === "mcq") {
-        const selected = form.querySelector(`input[name="${q.id}"]:checked`);
-        if (selected) answers[q.id] = selected.value;
-    } else if (q.type === "multi") {
-        const selected = [...form.querySelectorAll(`input[name="${q.id}"]:checked`)];
-        answers[q.id] = selected.map(el => el.value);
-    } else if (q.type === "open") {
+    if (q.type === "open") {
         const textarea = form.querySelector(`textarea[name="${q.id}"]`);
         if (textarea) answers[q.id] = textarea.value.trim();
-    } else if (q.type === "number") {
-        const input = form.querySelector(`input[name="${q.id}"]`);
-        if (input) answers[q.id] = input.value;
-    } else if (q.type === "scale-stars") {
-        // nothing needed, τα αστέρια αποθηκεύονται onClick
     }
+    // scale-stars αποθηκεύεται onClick
 
     if (step !== 0) showQuestion(currentIndex + step);
 }
