@@ -24,6 +24,8 @@
   .options-list { margin-top:8px; padding-left:20px; font-size:14px; }
   .delete-btn { background:#dc3545; color:#fff; }
   .delete-btn:hover { background:#c82333; }
+  .edit-btn { background:#007bff; color:#fff; }
+  .edit-btn:hover { background:#0056b3; }
 </style>
 </head>
 <body>
@@ -94,7 +96,6 @@ form.addEventListener("submit", e=>{
   const type = typeSelect.value;
   if(!text) return alert("Πληκτρολόγησε κείμενο.");
 
-  // Βρες μεγαλύτερο order και πρόσθεσε +1
   db.collection("questions").orderBy("order","desc").limit(1).get()
     .then(snapshot=>{
       let maxOrder = 0;
@@ -121,7 +122,8 @@ function loadQuestions(){
 
         const textDiv = document.createElement("div");
         textDiv.className="question-text";
-        textDiv.innerHTML = `${data.text} <br><small>Σειρά: ${data.order}</small>`;
+        textDiv.textContent = data.text;
+
         const typeDiv = document.createElement("div");
         typeDiv.className="question-type";
         typeDiv.textContent = data.type==="open"?"Ανοικτή":"Αστεράκια";
@@ -135,13 +137,48 @@ function loadQuestions(){
           }
         });
 
+        const editBtn = document.createElement("button");
+        editBtn.className="edit-btn";
+        editBtn.textContent="Επεξεργασία";
+        editBtn.addEventListener("click", ()=>{
+          editQuestion(doc.id, card, data);
+        });
+
         card.appendChild(textDiv);
         card.appendChild(typeDiv);
+        card.appendChild(editBtn);
         card.appendChild(delBtn);
         questionsContainer.appendChild(card);
       });
       enableDragDrop();
     });
+}
+
+// Επεξεργασία ερώτησης
+function editQuestion(id, card, data){
+  card.innerHTML="";
+  const textArea = document.createElement("textarea");
+  textArea.value = data.text;
+  const typeSelect = document.createElement("select");
+  ["open","scale-stars"].forEach(t=>{
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t==="open"?"Ανοικτή":"Αστεράκια";
+    if(t===data.type) opt.selected=true;
+    typeSelect.appendChild(opt);
+  });
+  const saveBtn = document.createElement("button");
+  saveBtn.textContent="Αποθήκευση";
+  saveBtn.style.background="#28a745"; saveBtn.style.color="#fff";
+  saveBtn.addEventListener("click", ()=>{
+    db.collection("questions").doc(id).update({
+      text: textArea.value.trim(),
+      type: typeSelect.value
+    }).then(()=>loadQuestions());
+  });
+  card.appendChild(textArea);
+  card.appendChild(typeSelect);
+  card.appendChild(saveBtn);
 }
 
 // Drag & Drop
@@ -170,8 +207,6 @@ saveOrderBtn.addEventListener("click", ()=>{
   cards.forEach((card,i)=>{
     const id = card.dataset.id;
     card.dataset.order = i+1;
-    const textDiv = card.querySelector(".question-text");
-    textDiv.innerHTML = `${textDiv.textContent.split("Σειρά:")[0].trim()} <br><small>Σειρά: ${i+1}</small>`;
     db.collection("questions").doc(id).update({ order:i+1 });
   });
   alert("Η σειρά αποθηκεύτηκε!");
