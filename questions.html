@@ -1,224 +1,228 @@
 <!DOCTYPE html>
 <html lang="el">
 <head>
-  <meta charset="UTF-8">
-  <title>Διαχείριση Ερωτήσεων</title>
-  <style>
-    body {
-      font-family: 'Poppins', sans-serif;
-      background: #f0f2f5;
-      padding: 20px;
-    }
+<meta charset="UTF-8">
+<title>Διαχείριση Ερωτήσεων</title>
+<style>
+body {
+  font-family: 'Poppins', sans-serif;
+  background: #f0f2f5;
+  padding: 20px;
+}
+h1 { text-align: center; margin-bottom: 20px; color: #333; }
 
-    h1 { text-align: center; margin-bottom: 20px; color: #333; }
+button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  margin: 5px;
+}
+#logout-btn { background: #ff4b2b; color: #fff; }
+#logout-btn:hover { background: #ff6a4d; }
+#back-btn { background: #007bff; color: #fff; }
+#back-btn:hover { background: #0056b3; }
+#add-btn { background: #28a745; color: #fff; }
+#add-btn:hover { background: #218838; }
+.delete-btn { background: #dc3545; color: #fff; }
+.delete-btn:hover { background: #c82333; }
 
-    button {
-      padding: 8px 14px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      margin: 5px;
-    }
-    #logout-btn { background: #ff4b2b; color: #fff; }
-    #logout-btn:hover { background: #ff6a4d; }
-    #back-btn { background: #007bff; color: #fff; }
-    #back-btn:hover { background: #0056b3; }
-    #add-btn { background: #28a745; color: #fff; }
-    #add-btn:hover { background: #218838; }
-    .delete-btn { background: #dc3545; color: #fff; }
-    .delete-btn:hover { background: #c82333; }
+form {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
 
-    form {
-      background: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-      max-width: 700px;
-      margin-left: auto;
-      margin-right: auto;
-    }
+input, select, textarea {
+  width: 100%;
+  padding: 8px;
+  margin: 8px 0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
 
-    input, select, textarea {
-      width: 100%;
-      padding: 8px;
-      margin: 8px 0;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
+.question-card {
+  background: #fff;
+  padding: 15px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
 
-    .question-card {
-      background: #fff;
-      padding: 15px;
-      margin-bottom: 12px;
-      border-radius: 10px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      max-width: 700px;
-      margin-left: auto;
-      margin-right: auto;
-    }
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 
-    .question-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+.question-type {
+  font-weight: 600;
+  color: #555;
+}
 
-    .question-type {
-      font-weight: 600;
-      color: #555;
-    }
+.options-list {
+  margin-top: 8px;
+  padding-left: 20px;
+}
 
-    .options-list {
-      margin-top: 8px;
-      padding-left: 20px;
-    }
-  </style>
+label { font-weight: 500; }
+</style>
 </head>
 <body>
 
-  <button id="back-btn">⬅ Επιστροφή στο Dashboard</button>
-  <button id="logout-btn">Αποσύνδεση</button>
-  <h1>Διαχείριση Ερωτήσεων</h1>
+<button id="back-btn">⬅ Επιστροφή στο Dashboard</button>
+<button id="logout-btn">Αποσύνδεση</button>
+<h1>Διαχείριση Ερωτήσεων</h1>
 
-  <form id="question-form">
-    <label for="question-text">Κείμενο Ερώτησης:</label>
-    <textarea id="question-text" required></textarea>
+<form id="question-form">
+  <label for="question-text">Κείμενο Ερώτησης:</label>
+  <textarea id="question-text" required></textarea>
 
-    <label for="question-type">Τύπος Ερώτησης:</label>
-    <select id="question-type">
-      <option value="mcq">Πολλαπλής Επιλογής</option>
-      <option value="open">Ανοικτή</option>
-      <option value="yesno">Ναι/Όχι</option>
-      <option value="number">Αριθμητική</option>
-      <option value="scale">Βαθμολογία 1-5</option>
+  <label for="question-type">Τύπος Ερώτησης:</label>
+  <select id="question-type">
+    <option value="mcq">Πολλαπλής Επιλογής</option>
+    <option value="open">Ανοικτή</option>
+    <option value="yesno">Ναι/Όχι</option>
+    <option value="number">Αριθμητική</option>
+    <option value="scale-stars">Βαθμολογία 1-5</option>
+  </select>
 
-    </select>
+  <div id="options-wrapper" style="display:none;">
+    <label for="options-text">Επιλογές (μία ανά γραμμή):</label>
+    <textarea id="options-text"></textarea>
+  </div>
 
-    <div id="options-wrapper" style="display:none;">
-      <label for="options-text">Επιλογές (μία ανά γραμμή):</label>
-      <textarea id="options-text"></textarea>
-    </div>
+  <label for="order">Σειρά εμφάνισης:</label>
+  <input type="number" id="order" value="1" min="1" />
 
-    <label for="order">Σειρά εμφάνισης:</label>
-    <input type="number" id="order" value="1" min="1" />
+  <button type="submit" id="add-btn">Προσθήκη Ερώτησης</button>
+</form>
 
-    <button type="submit" id="add-btn">Προσθήκη Ερώτησης</button>
-  </form>
+<div id="questions-container"></div>
 
-  <div id="questions-container"></div>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD_MPxHrzLs2vd677t3Nr8vXKFtQEuLI2g",
+  authDomain: "quiz-aa480.firebaseapp.com",
+  projectId: "quiz-aa480",
+  storageBucket: "quiz-aa480.appspot.com",
+  messagingSenderId: "913659290274",
+  appId: "1:913659290274:web:412b6ca878f15d094f6dfb",
+  measurementId: "G-Q3X66T9MJF"
+};
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyD_MPxHrzLs2vd677t3Nr8vXKFtQEuLI2g",
-      authDomain: "quiz-aa480.firebaseapp.com",
-      projectId: "quiz-aa480",
-      storageBucket: "quiz-aa480.appspot.com",
-      messagingSenderId: "913659290274",
-      appId: "1:913659290274:web:412b6ca878f15d094f6dfb",
-      measurementId: "G-Q3X66T9MJF"
-    };
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
+const form = document.getElementById("question-form");
+const textInput = document.getElementById("question-text");
+const typeSelect = document.getElementById("question-type");
+const optionsWrapper = document.getElementById("options-wrapper");
+const optionsText = document.getElementById("options-text");
+const questionsContainer = document.getElementById("questions-container");
+const logoutBtn = document.getElementById("logout-btn");
+const backBtn = document.getElementById("back-btn");
+const orderInput = document.getElementById("order");
 
-    const form = document.getElementById("question-form");
-    const textInput = document.getElementById("question-text");
-    const typeSelect = document.getElementById("question-type");
-    const optionsWrapper = document.getElementById("options-wrapper");
-    const optionsText = document.getElementById("options-text");
-    const questionsContainer = document.getElementById("questions-container");
-    const logoutBtn = document.getElementById("logout-btn");
-    const backBtn = document.getElementById("back-btn");
-    const orderInput = document.getElementById("order");
+// Έλεγχος CEO
+auth.onAuthStateChanged(user => {
+  if(!user) window.location.href="index.html";
+  else if(user.email!=="nafpliotis@sspc.gr") {
+    alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
+    window.location.href="index.html";
+  } else {
+    loadQuestions();
+  }
+});
 
-    // Έλεγχος CEO
-    auth.onAuthStateChanged(user => {
-      if(!user) window.location.href="index.html";
-      else if(user.email!=="nafpliotis@sspc.gr") {
-        alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
-        window.location.href="index.html";
-      } else {
-        loadQuestions();
-      }
-    });
+logoutBtn.addEventListener("click", ()=>auth.signOut().then(()=>window.location.href="index.html"));
+backBtn.addEventListener("click", ()=>window.location.href="dashboard.html");
 
-    logoutBtn.addEventListener("click", ()=>auth.signOut().then(()=>window.location.href="index.html"));
-    backBtn.addEventListener("click", ()=>window.location.href="dashboard.html");
+// Εμφάνιση επιλογών μόνο για MCQ
+typeSelect.addEventListener("change", ()=>{
+  if(typeSelect.value==="mcq") optionsWrapper.style.display="block";
+  else optionsWrapper.style.display="none";
+});
 
-    // Εμφάνιση επιλογών μόνο για MCQ
-    typeSelect.addEventListener("change", ()=>{
-      if(typeSelect.value==="mcq") optionsWrapper.style.display="block";
-      else optionsWrapper.style.display="none";
-    });
+form.addEventListener("submit", e=>{
+  e.preventDefault();
+  const text = textInput.value.trim();
+  const type = typeSelect.value;
+  const order = parseInt(orderInput.value) || 1;
+  if(!text) return alert("Πληκτρολόγησε το κείμενο της ερώτησης.");
 
-    form.addEventListener("submit", e=>{
-      e.preventDefault();
-      const text = textInput.value.trim();
-      const type = typeSelect.value;
-      const order = parseInt(orderInput.value) || 1;
-      if(!text) return alert("Πληκτρολόγησε το κείμενο της ερώτησης.");
+  let questionData = { text, type, order };
 
-      let questionData = { text, type, order };
+  if(type==="mcq"){
+    const opts = optionsText.value.split("\n").map(o=>o.trim()).filter(Boolean);
+    if(opts.length<2) return alert("Δώσε τουλάχιστον 2 επιλογές.");
+    questionData.options = opts;
+  } else if(type==="yesno") {
+    questionData.options=["Ναι","Όχι"];
+  }
 
-      if(type==="mcq"){
-        const opts = optionsText.value.split("\n").map(o=>o.trim()).filter(Boolean);
-        if(opts.length<2) return alert("Δώσε τουλάχιστον 2 επιλογές.");
-        questionData.options = opts;
-      } else if(type==="yesno") {
-        questionData.options=["Ναι","Όχι"];
-      }
+  db.collection("questions").add(questionData)
+    .then(()=>{
+      alert("Η ερώτηση προστέθηκε!");
+      form.reset();
+      optionsWrapper.style.display="none";
+      optionsText.value="";
+      loadQuestions();
+    })
+    .catch(err=>console.error("Σφάλμα Firebase:", err));
+});
 
-      db.collection("questions").add(questionData)
-        .then(()=>{
-          alert("Η ερώτηση προστέθηκε!");
-          form.reset();
-          optionsWrapper.style.display="none";
-          optionsText.value="";
-          loadQuestions();
-        })
-        .catch(err=>console.error("Σφάλμα Firebase:", err));
-    });
+// Φόρτωση ερωτήσεων
+function loadQuestions(){
+  db.collection("questions").get()
+    .then(snapshot=>{
+      questionsContainer.innerHTML="";
+      let docs = snapshot.docs.sort((a,b)=> (a.data().order || 0) - (b.data().order || 0));
+      docs.forEach(doc=>{
+        const data = doc.data();
+        const card = document.createElement("div");
+        card.className = "question-card";
+        let optionsHTML = "-";
+        if(data.options) optionsHTML = "<ul class='options-list'><li>"+data.options.join("</li><li>")+"</li></ul>";
 
-    // Φόρτωση ερωτήσεων
-    function loadQuestions(){
-      db.collection("questions").get()
-        .then(snapshot=>{
-          questionsContainer.innerHTML="";
-          // Ταξινόμηση με βάση το order
-          let docs = snapshot.docs.sort((a,b)=> (a.data().order || 0) - (b.data().order || 0));
-          docs.forEach(doc=>{
-            const data = doc.data();
-            const card = document.createElement("div");
-            card.className = "question-card";
-            let optionsHTML = "-";
-            if(data.options) optionsHTML = "<ul class='options-list'><li>"+data.options.join("</li><li>")+"</li></ul>";
+        let typeLabel = data.type==="mcq"?"Πολλαπλής":
+                        data.type==="open"?"Ανοικτή":
+                        data.type==="yesno"?"Ναι/Όχι":
+                        data.type==="number"?"Αριθμητική":
+                        data.type==="scale-stars"?"Βαθμολογία 1-5":"Άγνωστος";
 
-            card.innerHTML = `
-              <div class="question-header">
-                <span>${data.text}</span>
-                <span class="question-type">${data.type==="mcq"?"Πολλαπλής":data.type==="open"?"Ανοικτή":data.type==="yesno"?"Ναι/Όχι":"Αριθμητική"}</span>
-              </div>
-              <div>${optionsHTML}</div>
-              <button class="delete-btn">Διαγραφή</button>
-            `;
-            card.querySelector(".delete-btn").addEventListener("click", ()=>{
-              if(confirm("Να διαγραφεί η ερώτηση;")){
-                db.collection("questions").doc(doc.id).delete().then(()=>card.remove());
-              }
-            });
-            questionsContainer.appendChild(card);
-          });
+        card.innerHTML = `
+          <div class="question-header">
+            <span>${data.text}</span>
+            <span class="question-type">${typeLabel}</span>
+          </div>
+          <div>${optionsHTML}</div>
+          <div>Σειρά: ${data.order}</div>
+          <button class="delete-btn">Διαγραφή</button>
+        `;
+        card.querySelector(".delete-btn").addEventListener("click", ()=>{
+          if(confirm("Να διαγραφεί η ερώτηση;")){
+            db.collection("questions").doc(doc.id).delete().then(()=>card.remove());
+          }
         });
-    }
-  </script>
+        questionsContainer.appendChild(card);
+      });
+    });
+}
+</script>
 </body>
 </html>
-
