@@ -4,8 +4,9 @@ const exportBtn = document.getElementById("export-btn");
 const searchInput = document.getElementById("search-input");
 const manageBtn = document.getElementById("manage-questions-btn");
 
-let allResults = [];      // Αποθήκευση όλων των αποτελεσμάτων
-let allQuestions = {};    // Αποθήκευση ερωτήσεων με qId
+let allResults = [];       // Αποθήκευση όλων των αποτελεσμάτων
+let allQuestions = {};     // Ερωτήσεις με id, text, type
+let questionsOrder = [];   // Σειρά ερωτήσεων
 
 // Έλεγχος σύνδεσης και CEO
 auth.onAuthStateChanged(user => {
@@ -35,10 +36,12 @@ manageBtn.addEventListener("click", () => {
 
 // Φόρτωση όλων των ερωτήσεων
 function loadQuestions() {
-  return db.collection("questions").get()
+  return db.collection("questions").orderBy("order").get()
     .then(snapshot => {
       snapshot.forEach(doc => {
-        allQuestions[doc.id] = doc.data().text;
+        const qData = doc.data();
+        allQuestions[doc.id] = { text: qData.text, type: qData.type };
+        questionsOrder.push(doc.id);
       });
     });
 }
@@ -63,21 +66,36 @@ function renderResults(resultsArray) {
     const docId = item.id;
     const data = item.data;
     const dateObj = data.timestamp ? data.timestamp.toDate() : null;
-    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${dateObj.getMinutes()}` : "";
+    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2, "0")}` : "";
 
     const row = document.createElement("tr");
 
-    // Δημιουργία πλήρους κειμένου με ερώτηση + απάντηση
-    const answersText = Object.entries(data.answers || {})
-      .map(([qId, ans]) => {
-        const questionText = allQuestions[qId] || qId;
-        return `${questionText}\nΑπάντηση: ${ans}`;
+    // Δημιουργία απαντήσεων με σωστή σειρά
+    const answersText = questionsOrder
+      .filter(qId => data.answers[qId] !== undefined)
+      .map(qId => {
+        const question = allQuestions[qId];
+        const questionText = question ? question.text : qId;
+        let ans = data.answers[qId];
+        let displayAns = ans;
+
+        // Εμφάνιση αστεριών για scale-stars
+        if (question && question.type === "scale-stars") {
+          const rating = Number(ans);
+          if (rating >= 1 && rating <= 5) {
+            displayAns = "⭐".repeat(rating);
+          }
+        }
+
+        return `${questionText}\nΑπάντηση: ${displayAns}`;
       })
       .join("\n\n");
 
+    const answersHtml = answersText.replace(/\n/g, "<br>");
+
     row.innerHTML = `
       <td>${data.email}</td>
-      <td class="answers-cell">${answersText}</td>
+      <td class="answers-cell">${answersHtml}</td>
       <td>${date}</td>
       <td><button class="delete-btn">Διαγραφή</button></td>
     `;
@@ -105,7 +123,7 @@ searchInput.addEventListener("input", () => {
   renderResults(filtered);
 });
 
-// Εξαγωγή σε CSV/Excel (με σωστή εμφάνιση ελληνικών και line breaks)
+// Εξαγωγή σε CSV/Excel
 exportBtn.addEventListener("click", () => {
   if (!allResults.length) {
     alert("Δεν υπάρχουν αποτελέσματα για εξαγωγή.");
@@ -118,17 +136,28 @@ exportBtn.addEventListener("click", () => {
   allResults.forEach(item => {
     const data = item.data;
     const dateObj = data.timestamp ? data.timestamp.toDate() : null;
-    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${dateObj.getMinutes()}` : "";
+    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2, "0")}` : "";
 
-    // Ερωτήσεις + απαντήσεις με σωστά line breaks (\r\n)
-    const answersText = Object.entries(data.answers || {})
-      .map(([qId, ans]) => {
-        const questionText = allQuestions[qId] || qId;
-        return `${questionText}: ${ans.replace(/"/g,'""')}`;
+    const answersText = questionsOrder
+      .filter(qId => data.answers[qId] !== undefined)
+      .map(qId => {
+        const question = allQuestions[qId];
+        const questionText = question ? question.text : qId;
+        let ans = data.answers[qId];
+        let displayAns = ans;
+
+        if (question && question.type === "scale-stars") {
+          const rating = Number(ans);
+          if (rating >= 1 && rating <= 5) {
+            displayAns = "⭐".repeat(rating);
+          }
+        }
+
+        return `${questionText}: ${displayAns}`;
       })
       .join("\r\n");
 
-    const row = [data.email, `"${answersText}"`, date].join(",");
+    const row = [data.email, `"${answersText.replace(/"/g,'""')}"`, date].join(",");
     rows.push(row);
   });
 
