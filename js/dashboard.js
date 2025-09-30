@@ -36,7 +36,7 @@ manageBtn.addEventListener("click", () => {
 
 // Φόρτωση όλων των ερωτήσεων
 function loadQuestions() {
-  return db.collection("questions").orderBy("order").get()
+  return db.collection("questions").get()
     .then(snapshot => {
       snapshot.forEach(doc => {
         const qData = doc.data();
@@ -85,6 +85,11 @@ function renderResults(resultsArray) {
           if (rating >= 1 && rating <= 5) {
             displayAns = "⭐".repeat(rating);
           }
+        }
+
+        // Αν είναι array (multi)
+        if (Array.isArray(ans)) {
+          displayAns = ans.join(", ");
         }
 
         return `${questionText}\nΑπάντηση: ${displayAns}`;
@@ -146,11 +151,17 @@ exportBtn.addEventListener("click", () => {
         let ans = data.answers[qId];
         let displayAns = ans;
 
+        // Αστεράκια
         if (question && question.type === "scale-stars") {
           const rating = Number(ans);
           if (rating >= 1 && rating <= 5) {
             displayAns = "⭐".repeat(rating);
           }
+        }
+
+        // Αν είναι array (multi)
+        if (Array.isArray(ans)) {
+          displayAns = ans.join(", ");
         }
 
         return `${questionText}: ${displayAns}`;
