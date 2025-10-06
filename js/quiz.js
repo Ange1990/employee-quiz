@@ -25,7 +25,7 @@ logoutBtn.addEventListener("click", () => {
     auth.signOut().then(() => window.location.href = "index.html");
 });
 
-// --- Φόρτωση ερωτήσεων από Firestore με ταξινόμηση order ---
+// --- Φόρτωση ερωτήσεων από Firestore ---
 function loadQuestions() {
     db.collection("questions").orderBy("order").get()
         .then(snapshot => {
@@ -37,6 +37,7 @@ function loadQuestions() {
                     questions.push({ id: doc.id, ...data });
                 }
             });
+
             if (questions.length === 0) {
                 container.innerHTML = "<h2>Δεν υπάρχουν ερωτήσεις διαθέσιμες.</h2>";
             } else {
@@ -54,7 +55,7 @@ function showQuestion(index) {
 
     const card = document.createElement("div");
     card.className = "question-card";
-    card.style.minHeight = "180px"; // Σταθερό ύψος για όλες τις κάρτες
+    card.style.minHeight = "180px";
 
     // Κείμενο ερώτησης
     const qText = document.createElement("div");
@@ -70,8 +71,7 @@ function showQuestion(index) {
         textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
         textarea.value = answers[q.id] || "";
         card.appendChild(textarea);
-    } 
-    else if (q.type === "scale-stars") {
+    } else if (q.type === "scale-stars") {
         const starsWrapper = document.createElement("div");
         starsWrapper.className = "stars-wrapper";
 
@@ -86,14 +86,14 @@ function showQuestion(index) {
             star.textContent = i <= selected ? "★" : "☆";
             star.dataset.value = i;
             star.className = i <= selected ? "selected" : "";
-            
-            // Hover effect
+
             star.addEventListener("mouseover", () => {
                 for (let j = 0; j < numStars; j++) {
                     starsDiv.children[j].textContent = j < i ? "★" : "☆";
                     starsDiv.children[j].style.transform = j < i ? "scale(1.3)" : "scale(1)";
                 }
             });
+
             star.addEventListener("mouseout", () => {
                 const sel = answers[q.id] || 0;
                 for (let j = 0; j < numStars; j++) {
@@ -101,6 +101,7 @@ function showQuestion(index) {
                     starsDiv.children[j].style.transform = "scale(1)";
                 }
             });
+
             star.addEventListener("click", () => {
                 answers[q.id] = i;
                 showQuestion(currentIndex);
@@ -111,7 +112,6 @@ function showQuestion(index) {
 
         starsWrapper.appendChild(starsDiv);
 
-        // Αριθμοί κάτω από τα αστεράκια
         const labelsDiv = document.createElement("div");
         labelsDiv.className = "stars-labels";
         for (let i = 1; i <= numStars; i++) {
@@ -119,8 +119,8 @@ function showQuestion(index) {
             lbl.textContent = i;
             labelsDiv.appendChild(lbl);
         }
-
         starsWrapper.appendChild(labelsDiv);
+
         card.appendChild(starsWrapper);
     }
 
