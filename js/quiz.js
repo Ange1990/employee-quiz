@@ -67,11 +67,13 @@ function loadQuestions() {
           star.className = "star";
           star.innerHTML = "★";
           star.dataset.value = i;
+
           star.addEventListener("click", () => {
             starContainer.querySelectorAll(".star").forEach(s => s.classList.remove("selected"));
             for (let j = 0; j < i; j++) starContainer.children[j].classList.add("selected");
             starContainer.dataset.selected = i;
           });
+
           starContainer.appendChild(star);
         }
         starContainer.dataset.name = doc.id;
@@ -104,7 +106,7 @@ submitBtn.addEventListener("click", e => {
   }).then(() => {
     messageDiv.textContent = "✅ Οι απαντήσεις σας υποβλήθηκαν!";
     submitBtn.disabled = true;
-    quizForm.querySelectorAll("input, textarea, button, .star").forEach(el => el.disabled = true);
+    quizForm.querySelectorAll("textarea, .star").forEach(el => el.disabled = true);
     clearInterval(timerInterval);
     localStorage.removeItem("quizStartTime");
   });
@@ -138,14 +140,15 @@ function startTimer() {
 
     const minutes = Math.floor(remaining / 60);
     const seconds = remaining % 60;
-    timerDisplay.textContent = `Υπόλοιπο χρόνος: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    timerDisplay.textContent = `Υπόλοιπο χρόνος: ${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
   }, 1000);
 }
 
 // --- Κλείδωμα Quiz όταν τελειώσει ο χρόνος ---
 function lockQuiz() {
-  quizForm.querySelectorAll("input, textarea, button, .star").forEach(el => el.disabled = true);
+  quizForm.querySelectorAll("textarea, .star").forEach(el => el.disabled = true);
   submitBtn.disabled = true;
+
   const msg = document.createElement("div");
   msg.textContent = "⏰ Ο χρόνος έληξε! Δεν μπορείτε να απαντήσετε πλέον.";
   msg.style.textAlign = "center";
