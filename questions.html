@@ -28,7 +28,7 @@
     max-width:700px; margin-left:auto; margin-right:auto; cursor:grab; display:flex; align-items:center; justify-content:space-between; gap:10px;
   }
   .question-text { flex:1; word-break:break-word; }
-  .question-type { font-weight:600; color:#555; min-width:80px; }
+  .question-type { font-weight:600; color:#555; min-width:120px; }
   .question-order { font-weight:600; color:#333; min-width:70px; text-align:center; }
   .action-btn { padding:6px 10px; border:none; border-radius:6px; font-weight:600; cursor:pointer; }
   .edit-btn { background:#ffc107; color:#fff; }
@@ -103,7 +103,7 @@ auth.onAuthStateChanged(user=>{
 });
 
 logoutBtn.addEventListener("click", ()=>auth.signOut().then(()=>window.location.href="index.html"));
-backBtn.addEventListener("click", ()=>window.location.href="dashboard.html");
+backBtn.addEventListener("click", ()=>window.location.href="dashboard.html"));
 
 // --- Διαχείριση multiple choice επιλογών ---
 typeSelect.addEventListener("change", ()=>{
@@ -158,8 +158,16 @@ form.addEventListener("submit", e=>{
   }
 
   if(editId){
-    db.collection("questions").doc(editId).update({ text, type, options: options.length ? options : firebase.firestore.FieldValue.delete() })
-      .then(()=>{ editId=null; form.reset(); optionsContainer.innerHTML=""; loadQuestions(); });
+    db.collection("questions").doc(editId).update({
+      text,
+      type,
+      ...(type === "multiple" ? { options } : { options: firebase.firestore.FieldValue.delete() })
+    }).then(()=>{
+      editId = null;
+      form.reset();
+      optionsContainer.innerHTML="";
+      loadQuestions();
+    });
     return;
   }
 
@@ -167,7 +175,9 @@ form.addEventListener("submit", e=>{
     .then(snapshot=>{
       let maxOrder=0;
       snapshot.forEach(doc=>{ maxOrder = doc.data().order || 0; });
-      return db.collection("questions").add({ text, type, order: maxOrder+1, ...(options.length && {options}) });
+      let newQuestion = { text, type, order: maxOrder+1 };
+      if(type === "multiple") newQuestion.options = options;
+      return db.collection("questions").add(newQuestion);
     })
     .then(()=>{ form.reset(); optionsContainer.innerHTML=""; loadQuestions(); })
     .catch(err=>console.error(err));
@@ -192,7 +202,9 @@ function loadQuestions(){
 
         const typeDiv = document.createElement("div");
         typeDiv.className="question-type";
-        typeDiv.textContent = data.type==="open"?"Ανοικτή":(data.type==="scale-stars"?"Αστεράκια":"Πολλαπλής Επιλογής");
+        if(data.type==="open") typeDiv.textContent="Ανοικτή";
+        else if(data.type==="scale-stars") typeDiv.textContent="Αστεράκια";
+        else typeDiv.textContent="Πολλαπλής Επιλογής";
 
         const orderSpan = document.createElement("span");
         orderSpan.className="question-order";
@@ -204,7 +216,7 @@ function loadQuestions(){
         editBtn.addEventListener("click", ()=>{
           textInput.value = data.text;
           typeSelect.value = data.type;
-          optionsContainer.innerHTML = "";
+          optionsContainer.innerHTML="";
           if(data.type==="multiple" && data.options){
             data.options.forEach(opt => addOptionField(opt));
           }
