@@ -62,21 +62,29 @@ function loadQuestions() {
       if (q.type === "scale-stars") {
         const starContainer = document.createElement("div");
         starContainer.className = "stars";
+        starContainer.dataset.name = doc.id;
+        starContainer.dataset.selected = 0;
+
         for (let i = 1; i <= 5; i++) {
           const star = document.createElement("span");
           star.className = "star";
           star.innerHTML = "★";
           star.dataset.value = i;
 
+          star.addEventListener("mouseenter", () => {
+            highlightStars(starContainer, i);
+          });
+          star.addEventListener("mouseleave", () => {
+            highlightStars(starContainer, parseInt(starContainer.dataset.selected));
+          });
           star.addEventListener("click", () => {
-            starContainer.querySelectorAll(".star").forEach(s => s.classList.remove("selected"));
-            for (let j = 0; j < i; j++) starContainer.children[j].classList.add("selected");
             starContainer.dataset.selected = i;
+            highlightStars(starContainer, i);
           });
 
           starContainer.appendChild(star);
         }
-        starContainer.dataset.name = doc.id;
+
         questionDiv.appendChild(starContainer);
       }
 
@@ -92,11 +100,15 @@ submitBtn.addEventListener("click", e => {
   if (!user) return;
 
   const answers = {};
+
+  // Απαντήσεις text
   quizForm.querySelectorAll("textarea").forEach(t => {
     answers[t.name] = t.value.trim();
   });
+
+  // Απαντήσεις αστέρια
   quizForm.querySelectorAll(".stars").forEach(div => {
-    answers[div.dataset.name] = div.dataset.selected || "";
+    answers[div.dataset.name] = div.dataset.selected || 0;
   });
 
   db.collection("answers").add({
@@ -105,16 +117,24 @@ submitBtn.addEventListener("click", e => {
     answers
   }).then(() => {
     messageDiv.textContent = "✅ Οι απαντήσεις σας υποβλήθηκαν!";
-    submitBtn.disabled = true;
-    quizForm.querySelectorAll("textarea, .star").forEach(el => el.disabled = true);
+    disableQuiz();
     clearInterval(timerInterval);
     localStorage.removeItem("quizStartTime");
   });
 });
 
-// --- Αντίστροφη Μέτρηση 10 Λεπτών με αποθήκευση ---
+// --- Highlight αστέρια ---
+function highlightStars(container, count) {
+  const stars = container.querySelectorAll(".star");
+  stars.forEach((s, i) => {
+    if (i < count) s.classList.add("selected");
+    else s.classList.remove("selected");
+  });
+}
+
+// --- Αντίστροφη Μέτρηση 10 Λεπτών ---
 function startTimer() {
-  const totalSeconds = 10 * 60; // 10 λεπτά
+  const totalSeconds = 10 * 60;
   const storedStart = localStorage.getItem("quizStartTime");
   let startTime;
 
@@ -146,9 +166,7 @@ function startTimer() {
 
 // --- Κλείδωμα Quiz όταν τελειώσει ο χρόνος ---
 function lockQuiz() {
-  quizForm.querySelectorAll("textarea, .star").forEach(el => el.disabled = true);
-  submitBtn.disabled = true;
-
+  disableQuiz();
   const msg = document.createElement("div");
   msg.textContent = "⏰ Ο χρόνος έληξε! Δεν μπορείτε να απαντήσετε πλέον.";
   msg.style.textAlign = "center";
@@ -156,4 +174,10 @@ function lockQuiz() {
   msg.style.marginTop = "20px";
   msg.style.fontWeight = "600";
   quizForm.appendChild(msg);
+}
+
+// --- Απενεργοποίηση Quiz ---
+function disableQuiz() {
+  quizForm.querySelectorAll("textarea, .star").forEach(el => el.disabled = true);
+  submitBtn.disabled = true;
 }
