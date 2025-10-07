@@ -107,7 +107,7 @@ auth.onAuthStateChanged(user => {
 logoutBtn.addEventListener("click", () => auth.signOut().then(() => window.location.href="index.html"));
 backBtn.addEventListener("click", () => window.location.href="dashboard.html");
 
-// --- Διαχείριση multiple choice επιλογών ---
+// --- Multiple choice ---
 typeSelect.addEventListener("change", () => {
   if(typeSelect.value === "multiple"){
     optionsLabel.style.display = "block";
@@ -121,10 +121,9 @@ typeSelect.addEventListener("change", () => {
     optionsContainer.innerHTML = "";
   }
 });
-
 addOptionBtn.addEventListener("click", () => addOptionField());
 
-function addOptionField(value = ""){
+function addOptionField(value = "") {
   const row = document.createElement("div");
   row.className = "option-row";
   const input = document.createElement("input");
@@ -144,7 +143,7 @@ function addOptionField(value = ""){
   optionsContainer.appendChild(row);
 }
 
-// --- Προσθήκη ή Επεξεργασία ---
+// --- Προσθήκη / Επεξεργασία ---
 form.addEventListener("submit", e => {
   e.preventDefault();
   const text = textInput.value.trim();
@@ -159,13 +158,19 @@ form.addEventListener("submit", e => {
     if(options.length === 0) return alert("Πρέπει να δώσεις τουλάχιστον μία επιλογή.");
   }
 
-  db.collection("questions").orderBy("order", "desc").limit(1).get()
+  db.collection("questions").orderBy("order","desc").limit(1).get()
     .then(snapshot => {
       let maxOrder = 0;
-      snapshot.forEach(doc => { maxOrder = doc.data().order || 0; });
+      if(!snapshot.empty){
+        snapshot.docs.forEach(doc => { maxOrder = Math.max(maxOrder, doc.data().order || 0); });
+      }
 
       let questionData = { text, type, order: maxOrder + 1 };
-      if(options.length > 0) questionData.options = options;
+      if(type === "multiple"){
+        if(options.length > 0) questionData.options = options;
+      } else {
+        questionData.options = firebase.firestore.FieldValue.delete();
+      }
 
       if(editId){
         return db.collection("questions").doc(editId).update(questionData).then(() => editId = null);
