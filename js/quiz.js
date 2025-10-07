@@ -1,183 +1,205 @@
-// --- Firebase Ρυθμίσεις ---
-const firebaseConfig = {
-  apiKey: "AIzaSyD_MPxHrzLs2vd677t3Nr8vXKFtQEuLI2g",
-  authDomain: "quiz-aa480.firebaseapp.com",
-  projectId: "quiz-aa480",
-  storageBucket: "quiz-aa480.appspot.com",
-  messagingSenderId: "913659290274",
-  appId: "1:913659290274:web:412b6ca878f15d094f6dfb"
-};
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-
+// Στοιχεία DOM
+const container = document.getElementById("questions-container");
+const form = document.getElementById("quiz-form");
 const userEmailSpan = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
-const quizForm = document.getElementById("quiz-form");
-const submitBtn = document.getElementById("submit-btn");
-const messageDiv = document.getElementById("message");
-const timerDisplay = document.getElementById("timer");
+const progressBar = document.getElementById("progress");
 
-let timerInterval = null;
+// Κατάσταση Quiz
+let questions = [];
+let currentIndex = 0;
+let answers = {};
 
-// --- Έλεγχος Σύνδεσης ---
+// --- Έλεγχος σύνδεσης χρήστη ---
 auth.onAuthStateChanged(user => {
-  if (!user) {
-    window.location.href = "index.html";
-  } else {
-    userEmailSpan.textContent = user.email;
-    loadQuestions();
-    startTimer();
-  }
+    if (!user) {
+        window.location.href = "index.html";
+    } else {
+        userEmailSpan.textContent = `Καλώς ήρθες, ${user.email}`;
+        loadQuestions();
+    }
 });
 
 // --- Logout ---
 logoutBtn.addEventListener("click", () => {
-  auth.signOut().then(() => {
-    localStorage.removeItem("quizStartTime");
-    window.location.href = "index.html";
-  });
+    auth.signOut().then(() => window.location.href = "index.html");
 });
 
-// --- Φόρτωση Ερωτήσεων ---
+// --- Φόρτωση ερωτήσεων από Firestore ---
 function loadQuestions() {
-  db.collection("questions").orderBy("order").get().then(snapshot => {
-    quizForm.innerHTML = "";
-    snapshot.forEach(doc => {
-      const q = doc.data();
-      const questionDiv = document.createElement("div");
-      questionDiv.className = "question";
+    db.collection("questions").orderBy("order").get()
+        .then(snapshot => {
+            questions = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                // Μόνο open και scale-stars
+                if (data.type === "open" || data.type === "scale-stars") {
+                    questions.push({ id: doc.id, ...data });
+                }
+            });
 
-      const label = document.createElement("h3");
-      label.textContent = q.text;
-      questionDiv.appendChild(label);
+            if (questions.length === 0) {
+                container.innerHTML = "<h2>Δεν υπάρχουν ερωτήσεις διαθέσιμες.</h2>";
+            } else {
+                showQuestion(0);
+            }
+        })
+        .catch(err => console.error("Σφάλμα φόρτωσης ερωτήσεων:", err));
+}
 
-      if (q.type === "open") {
+// --- Εμφάνιση μιας ερώτησης ---
+function showQuestion(index) {
+    currentIndex = index;
+    const q = questions[index];
+    container.innerHTML = "";
+
+    const card = document.createElement("div");
+    card.className = "question-card";
+    card.style.minHeight = "180px";
+
+    // Κείμενο ερώτησης
+    const qText = document.createElement("div");
+    qText.className = "question-text";
+    qText.textContent = q.text;
+    card.appendChild(qText);
+
+    // Δημιουργία επιλογών
+    if (q.type === "open") {
         const textarea = document.createElement("textarea");
-        textarea.name = doc.id;
-        textarea.required = true;
-        questionDiv.appendChild(textarea);
-      }
+        textarea.name = q.id;
+        textarea.rows = 4;
+        textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
+        textarea.value = answers[q.id] || "";
+        card.appendChild(textarea);
+    } else if (q.type === "scale-stars") {
+        const starsWrapper = document.createElement("div");
+        starsWrapper.className = "stars-wrapper";
 
-      if (q.type === "scale-stars") {
-        const starContainer = document.createElement("div");
-        starContainer.className = "stars";
-        starContainer.dataset.name = doc.id;
-        starContainer.dataset.selected = 0;
+        const numStars = 5;
+        const selected = parseInt(answers[q.id]) || 0;
 
-        for (let i = 1; i <= 5; i++) {
-          const star = document.createElement("span");
-          star.className = "star";
-          star.innerHTML = "★";
-          star.dataset.value = i;
+        const starsDiv = document.createElement("div");
+        starsDiv.className = "stars";
 
-          star.addEventListener("mouseenter", () => {
-            highlightStars(starContainer, i);
-          });
-          star.addEventListener("mouseleave", () => {
-            highlightStars(starContainer, parseInt(starContainer.dataset.selected));
-          });
-          star.addEventListener("click", () => {
-            starContainer.dataset.selected = i;
-            highlightStars(starContainer, i);
-          });
+        for (let i = 1; i <= numStars; i++) {
+            const star = document.createElement("span");
+            star.textContent = i <= selected ? "★" : "☆";
+            star.dataset.value = i;
+            star.className = i <= selected ? "selected" : "";
 
-          starContainer.appendChild(star);
+            star.addEventListener("mouseover", () => {
+                for (let j = 0; j < numStars; j++) {
+                    starsDiv.children[j].textContent = j < i ? "★" : "☆";
+                    starsDiv.children[j].style.transform = j < i ? "scale(1.3)" : "scale(1)";
+                }
+            });
+
+            star.addEventListener("mouseout", () => {
+                const sel = answers[q.id] || 0;
+                for (let j = 0; j < numStars; j++) {
+                    starsDiv.children[j].textContent = j < sel ? "★" : "☆";
+                    starsDiv.children[j].style.transform = "scale(1)";
+                }
+            });
+
+            star.addEventListener("click", () => {
+                answers[q.id] = i;
+                showQuestion(currentIndex);
+            });
+
+            starsDiv.appendChild(star);
         }
 
-        questionDiv.appendChild(starContainer);
-      }
+        starsWrapper.appendChild(starsDiv);
 
-      quizForm.appendChild(questionDiv);
-    });
-  });
-}
+        const labelsDiv = document.createElement("div");
+        labelsDiv.className = "stars-labels";
+        for (let i = 1; i <= numStars; i++) {
+            const lbl = document.createElement("span");
+            lbl.textContent = i;
+            labelsDiv.appendChild(lbl);
+        }
+        starsWrapper.appendChild(labelsDiv);
 
-// --- Υποβολή ---
-submitBtn.addEventListener("click", e => {
-  e.preventDefault();
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const answers = {};
-
-  // Απαντήσεις text
-  quizForm.querySelectorAll("textarea").forEach(t => {
-    answers[t.name] = t.value.trim();
-  });
-
-  // Απαντήσεις αστέρια
-  quizForm.querySelectorAll(".stars").forEach(div => {
-    answers[div.dataset.name] = div.dataset.selected || 0;
-  });
-
-  db.collection("answers").add({
-    user: user.email,
-    timestamp: new Date(),
-    answers
-  }).then(() => {
-    messageDiv.textContent = "✅ Οι απαντήσεις σας υποβλήθηκαν!";
-    disableQuiz();
-    clearInterval(timerInterval);
-    localStorage.removeItem("quizStartTime");
-  });
-});
-
-// --- Highlight αστέρια ---
-function highlightStars(container, count) {
-  const stars = container.querySelectorAll(".star");
-  stars.forEach((s, i) => {
-    if (i < count) s.classList.add("selected");
-    else s.classList.remove("selected");
-  });
-}
-
-// --- Αντίστροφη Μέτρηση 10 Λεπτών ---
-function startTimer() {
-  const totalSeconds = 10 * 60;
-  const storedStart = localStorage.getItem("quizStartTime");
-  let startTime;
-
-  if (storedStart) {
-    startTime = new Date(parseInt(storedStart));
-  } else {
-    startTime = new Date();
-    localStorage.setItem("quizStartTime", startTime.getTime());
-  }
-
-  timerInterval = setInterval(() => {
-    const now = new Date();
-    const elapsed = Math.floor((now - startTime) / 1000);
-    const remaining = totalSeconds - elapsed;
-
-    if (remaining <= 0) {
-      clearInterval(timerInterval);
-      lockQuiz();
-      localStorage.removeItem("quizStartTime");
-      timerDisplay.textContent = "Υπόλοιπο χρόνος: 00:00";
-      return;
+        card.appendChild(starsWrapper);
     }
 
-    const minutes = Math.floor(remaining / 60);
-    const seconds = remaining % 60;
-    timerDisplay.textContent = `Υπόλοιπο χρόνος: ${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
-  }, 1000);
+    container.appendChild(card);
+    renderNavigation();
+    updateProgress();
+    updateSubmitButton();
 }
 
-// --- Κλείδωμα Quiz όταν τελειώσει ο χρόνος ---
-function lockQuiz() {
-  disableQuiz();
-  const msg = document.createElement("div");
-  msg.textContent = "⏰ Ο χρόνος έληξε! Δεν μπορείτε να απαντήσετε πλέον.";
-  msg.style.textAlign = "center";
-  msg.style.fontSize = "18px";
-  msg.style.marginTop = "20px";
-  msg.style.fontWeight = "600";
-  quizForm.appendChild(msg);
+// --- Κουμπιά πλοήγησης ---
+function renderNavigation() {
+    const nav = document.createElement("div");
+    nav.style.display = "flex";
+    nav.style.justifyContent = "space-between";
+    nav.style.marginTop = "25px";
+
+    if (currentIndex > 0) {
+        const prevBtn = document.createElement("button");
+        prevBtn.type = "button";
+        prevBtn.textContent = "⬅ Προηγούμενο";
+        prevBtn.className = "nav-btn prev";
+        prevBtn.onclick = () => saveAnswerAndMove(-1);
+        nav.appendChild(prevBtn);
+    }
+
+    if (currentIndex < questions.length - 1) {
+        const nextBtn = document.createElement("button");
+        nextBtn.type = "button";
+        nextBtn.textContent = "Επόμενο ➡";
+        nextBtn.className = "nav-btn next";
+        nextBtn.onclick = () => saveAnswerAndMove(1);
+        nav.appendChild(nextBtn);
+    }
+
+    container.appendChild(nav);
 }
 
-// --- Απενεργοποίηση Quiz ---
-function disableQuiz() {
-  quizForm.querySelectorAll("textarea, .star").forEach(el => el.disabled = true);
-  submitBtn.disabled = true;
+// --- Εμφάνιση/απόκρυψη submit button ---
+function updateSubmitButton() {
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.style.display = (currentIndex === questions.length - 1) ? "block" : "none";
 }
+
+// --- Αποθήκευση απάντησης πριν μετάβαση ---
+function saveAnswerAndMove(step) {
+    const q = questions[currentIndex];
+
+    if (q.type === "open") {
+        const textarea = form.querySelector(`textarea[name="${q.id}"]`);
+        if (textarea) answers[q.id] = textarea.value.trim();
+    }
+    // scale-stars αποθηκεύεται onClick
+
+    if (step !== 0) showQuestion(currentIndex + step);
+}
+
+// --- Progress bar ---
+function updateProgress() {
+    const percent = ((currentIndex + 1) / questions.length) * 100;
+    progressBar.style.width = `${percent}%`;
+}
+
+// --- Υποβολή απαντήσεων ---
+form.addEventListener("submit", e => {
+    e.preventDefault();
+    saveAnswerAndMove(0);
+
+    if (!confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;")) return;
+
+    const user = auth.currentUser;
+    if (user) {
+        db.collection("results").add({
+            uid: user.uid,
+            email: user.email,
+            answers: answers,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+            container.innerHTML = "<h2>Ευχαριστούμε για τη συμμετοχή!</h2>";
+            progressBar.style.width = "100%";
+        }).catch(err => console.error("Σφάλμα αποθήκευσης:", err));
+    }
+});
