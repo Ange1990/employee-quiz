@@ -19,11 +19,17 @@
   form { background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.1); margin-bottom:20px; max-width:700px; margin-left:auto; margin-right:auto; }
   input, select, textarea { width:100%; padding:8px; margin:8px 0; border:1px solid #ccc; border-radius:6px; }
 
-  .question-card { background:#fff; padding:15px; margin-bottom:12px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); max-width:700px; margin-left:auto; margin-right:auto; cursor:grab; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  #options-container .option-row { display:flex; gap:10px; align-items:center; margin-bottom:5px; }
+  .option-input { flex:1; }
+  .remove-option-btn { background:#dc3545; color:#fff; border:none; border-radius:5px; cursor:pointer; padding:4px 8px; }
+
+  .question-card {
+    background:#fff; padding:15px; margin-bottom:12px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1);
+    max-width:700px; margin-left:auto; margin-right:auto; cursor:grab; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
   .question-text { flex:1; word-break:break-word; }
   .question-type { font-weight:600; color:#555; min-width:80px; }
   .question-order { font-weight:600; color:#333; min-width:70px; text-align:center; }
-  .options-list { margin-top:8px; padding-left:20px; font-size:14px; }
   .action-btn { padding:6px 10px; border:none; border-radius:6px; font-weight:600; cursor:pointer; }
   .edit-btn { background:#ffc107; color:#fff; }
   .edit-btn:hover { background:#e0a800; }
@@ -48,14 +54,14 @@
     <option value="multiple">Πολλαπλής Επιλογής</option>
   </select>
 
-  <label for="question-options" id="options-label" style="display:none;">Επιλογές (μία ανά γραμμή):</label>
-  <textarea id="question-options" style="display:none;"></textarea>
+  <label for="question-options" id="options-label" style="display:none;">Επιλογές:</label>
+  <div id="options-container" style="display:none;"></div>
+  <button type="button" id="add-option-btn" style="display:none;">➕ Προσθήκη Επιλογής</button>
 
   <button type="submit" id="add-btn">Προσθήκη Ερώτησης</button>
 </form>
 
 <button id="save-order-btn">Αποθήκευση Σειράς</button>
-
 <div id="questions-container"></div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -79,17 +85,18 @@ const db = firebase.firestore();
 const form = document.getElementById("question-form");
 const textInput = document.getElementById("question-text");
 const typeSelect = document.getElementById("question-type");
-const optionsLabel = document.getElementById("options-label");
-const optionsInput = document.getElementById("question-options");
 const questionsContainer = document.getElementById("questions-container");
 const logoutBtn = document.getElementById("logout-btn");
 const backBtn = document.getElementById("back-btn");
 const saveOrderBtn = document.getElementById("save-order-btn");
+const optionsContainer = document.getElementById("options-container");
+const addOptionBtn = document.getElementById("add-option-btn");
+const optionsLabel = document.getElementById("options-label");
 
 let editId = null;
 
 // --- Έλεγχος CEO ---
-auth.onAuthStateChanged(user => {
+auth.onAuthStateChanged(user=>{
   if(!user) window.location.href="index.html";
   else if(user.email!=="nafpliotis@sspc.gr"){ alert("Δεν έχετε πρόσβαση"); window.location.href="index.html"; }
   else loadQuestions();
@@ -98,16 +105,42 @@ auth.onAuthStateChanged(user => {
 logoutBtn.addEventListener("click", ()=>auth.signOut().then(()=>window.location.href="index.html"));
 backBtn.addEventListener("click", ()=>window.location.href="dashboard.html");
 
-// --- Εμφάνιση/απόκρυψη options για multiple ---
+// --- Διαχείριση multiple choice επιλογών ---
 typeSelect.addEventListener("change", ()=>{
   if(typeSelect.value === "multiple"){
     optionsLabel.style.display = "block";
-    optionsInput.style.display = "block";
+    optionsContainer.style.display = "block";
+    addOptionBtn.style.display = "inline-block";
+    if(optionsContainer.children.length === 0) addOptionField();
   } else {
     optionsLabel.style.display = "none";
-    optionsInput.style.display = "none";
+    optionsContainer.style.display = "none";
+    addOptionBtn.style.display = "none";
+    optionsContainer.innerHTML = "";
   }
 });
+
+addOptionBtn.addEventListener("click", ()=>addOptionField());
+
+function addOptionField(value=""){
+  const row = document.createElement("div");
+  row.className = "option-row";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "option-input";
+  input.placeholder = `Περιεχόμενο επιλογής ${String.fromCharCode(65 + optionsContainer.children.length)}`;
+  input.value = value;
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "remove-option-btn";
+  removeBtn.textContent = "❌";
+  removeBtn.addEventListener("click", ()=>row.remove());
+
+  row.appendChild(input);
+  row.appendChild(removeBtn);
+  optionsContainer.appendChild(row);
+}
 
 // --- Προσθήκη ή Επεξεργασία ---
 form.addEventListener("submit", e=>{
@@ -119,13 +152,14 @@ form.addEventListener("submit", e=>{
   if(!text) return alert("Πληκτρολόγησε κείμενο.");
 
   if(type === "multiple"){
-    options = optionsInput.value.split("\n").map(o=>o.trim()).filter(o=>o);
-    if(!options.length) return alert("Πρέπει να δώσεις τουλάχιστον μία επιλογή.");
+    const optionInputs = optionsContainer.querySelectorAll(".option-input");
+    optionInputs.forEach(inp=>{ if(inp.value.trim()) options.push(inp.value.trim()); });
+    if(options.length === 0) return alert("Πρέπει να δώσεις τουλάχιστον μία επιλογή.");
   }
 
   if(editId){
-    db.collection("questions").doc(editId).update({ text, type, options })
-      .then(()=>{ editId=null; form.reset(); loadQuestions(); });
+    db.collection("questions").doc(editId).update({ text, type, options: options.length ? options : firebase.firestore.FieldValue.delete() })
+      .then(()=>{ editId=null; form.reset(); optionsContainer.innerHTML=""; loadQuestions(); });
     return;
   }
 
@@ -133,9 +167,9 @@ form.addEventListener("submit", e=>{
     .then(snapshot=>{
       let maxOrder=0;
       snapshot.forEach(doc=>{ maxOrder = doc.data().order || 0; });
-      return db.collection("questions").add({ text, type, options, order: maxOrder+1 });
+      return db.collection("questions").add({ text, type, order: maxOrder+1, ...(options.length && {options}) });
     })
-    .then(()=>{ form.reset(); loadQuestions(); })
+    .then(()=>{ form.reset(); optionsContainer.innerHTML=""; loadQuestions(); })
     .catch(err=>console.error(err));
 });
 
@@ -158,7 +192,7 @@ function loadQuestions(){
 
         const typeDiv = document.createElement("div");
         typeDiv.className="question-type";
-        typeDiv.textContent = data.type==="open"?"Ανοικτή":(data.type==="scale-stars"?"Αστεράκια":"Πολλαπλής");
+        typeDiv.textContent = data.type==="open"?"Ανοικτή":(data.type==="scale-stars"?"Αστεράκια":"Πολλαπλής Επιλογής");
 
         const orderSpan = document.createElement("span");
         orderSpan.className="question-order";
@@ -170,10 +204,12 @@ function loadQuestions(){
         editBtn.addEventListener("click", ()=>{
           textInput.value = data.text;
           typeSelect.value = data.type;
-          if(data.type==="multiple") optionsInput.value = (data.options||[]).join("\n");
-          else optionsInput.value = "";
+          optionsContainer.innerHTML = "";
+          if(data.type==="multiple" && data.options){
+            data.options.forEach(opt => addOptionField(opt));
+          }
+          typeSelect.dispatchEvent(new Event("change"));
           editId = doc.id;
-          typeSelect.dispatchEvent(new Event('change'));
         });
 
         const delBtn = document.createElement("button");
@@ -190,18 +226,6 @@ function loadQuestions(){
         card.appendChild(editBtn);
         card.appendChild(delBtn);
         card.appendChild(orderSpan);
-
-        // Εμφάνιση επιλογών multiple
-        if(data.type==="multiple" && data.options){
-          const optsList = document.createElement("ul");
-          optsList.className="options-list";
-          data.options.forEach(o=>{
-            const li = document.createElement("li");
-            li.textContent = o;
-            optsList.appendChild(li);
-          });
-          card.appendChild(optsList);
-        }
 
         questionsContainer.appendChild(card);
       });
