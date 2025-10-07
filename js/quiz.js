@@ -4,11 +4,16 @@ const form = document.getElementById("quiz-form");
 const userEmailSpan = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
 const progressBar = document.getElementById("progress");
+const TIMER_TOTAL = 10 * 60; // 10 λεπτά
+const timerDisplay = document.createElement("div");
+timerDisplay.style.marginBottom = "15px";
+timerDisplay.style.fontWeight = "600";
+form.prepend(timerDisplay);
 
-// Κατάσταση Quiz
 let questions = [];
 let currentIndex = 0;
 let answers = {};
+let timerInterval = null;
 
 // --- Έλεγχος σύνδεσης χρήστη ---
 auth.onAuthStateChanged(user => {
@@ -17,12 +22,16 @@ auth.onAuthStateChanged(user => {
     } else {
         userEmailSpan.textContent = `Καλώς ήρθες, ${user.email}`;
         loadQuestions();
+        startTimer();
     }
 });
 
 // --- Logout ---
 logoutBtn.addEventListener("click", () => {
-    auth.signOut().then(() => window.location.href = "index.html");
+    auth.signOut().then(() => {
+        localStorage.removeItem("quizStartTime");
+        window.location.href = "index.html";
+    });
 });
 
 // --- Φόρτωση ερωτήσεων από Firestore ---
@@ -32,7 +41,6 @@ function loadQuestions() {
             questions = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
-                // Μόνο open και scale-stars
                 if (data.type === "open" || data.type === "scale-stars") {
                     questions.push({ id: doc.id, ...data });
                 }
@@ -45,6 +53,43 @@ function loadQuestions() {
             }
         })
         .catch(err => console.error("Σφάλμα φόρτωσης ερωτήσεων:", err));
+}
+
+// --- Timer ---
+function startTimer() {
+    let startTime = localStorage.getItem("quizStartTime");
+    if (!startTime) {
+        startTime = Date.now();
+        localStorage.setItem("quizStartTime", startTime);
+    } else startTime = parseInt(startTime);
+
+    timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const remaining = TIMER_TOTAL - elapsed;
+
+        if (remaining <= 0) {
+            clearInterval(timerInterval);
+            lockQuiz();
+            timerDisplay.textContent = "Χρόνος: 00:00";
+            localStorage.removeItem("quizStartTime");
+            return;
+        }
+
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+        timerDisplay.textContent = `Χρόνος: ${minutes}:${seconds.toString().padStart(2, "0")}`;
+    }, 1000);
+}
+
+// --- Κλείδωμα Quiz ---
+function lockQuiz() {
+    form.querySelectorAll("textarea, .stars span, button").forEach(el => el.disabled = true);
+    const msg = document.createElement("div");
+    msg.textContent = "⏰ Ο χρόνος έληξε! Δεν μπορείτε να απαντήσετε πλέον.";
+    msg.style.textAlign = "center";
+    msg.style.fontSize = "18px";
+    msg.style.fontWeight = "600";
+    container.appendChild(msg);
 }
 
 // --- Εμφάνιση μιας ερώτησης ---
@@ -74,10 +119,8 @@ function showQuestion(index) {
     } else if (q.type === "scale-stars") {
         const starsWrapper = document.createElement("div");
         starsWrapper.className = "stars-wrapper";
-
         const numStars = 5;
         const selected = parseInt(answers[q.id]) || 0;
-
         const starsDiv = document.createElement("div");
         starsDiv.className = "stars";
 
@@ -86,14 +129,12 @@ function showQuestion(index) {
             star.textContent = i <= selected ? "★" : "☆";
             star.dataset.value = i;
             star.className = i <= selected ? "selected" : "";
-
             star.addEventListener("mouseover", () => {
                 for (let j = 0; j < numStars; j++) {
                     starsDiv.children[j].textContent = j < i ? "★" : "☆";
                     starsDiv.children[j].style.transform = j < i ? "scale(1.3)" : "scale(1)";
                 }
             });
-
             star.addEventListener("mouseout", () => {
                 const sel = answers[q.id] || 0;
                 for (let j = 0; j < numStars; j++) {
@@ -101,12 +142,10 @@ function showQuestion(index) {
                     starsDiv.children[j].style.transform = "scale(1)";
                 }
             });
-
             star.addEventListener("click", () => {
                 answers[q.id] = i;
                 showQuestion(currentIndex);
             });
-
             starsDiv.appendChild(star);
         }
 
@@ -172,7 +211,6 @@ function saveAnswerAndMove(step) {
         const textarea = form.querySelector(`textarea[name="${q.id}"]`);
         if (textarea) answers[q.id] = textarea.value.trim();
     }
-    // scale-stars αποθηκεύεται onClick
 
     if (step !== 0) showQuestion(currentIndex + step);
 }
@@ -200,6 +238,8 @@ form.addEventListener("submit", e => {
         }).then(() => {
             container.innerHTML = "<h2>Ευχαριστούμε για τη συμμετοχή!</h2>";
             progressBar.style.width = "100%";
+            clearInterval(timerInterval);
+            localStorage.removeItem("quizStartTime");
         }).catch(err => console.error("Σφάλμα αποθήκευσης:", err));
     }
 });
