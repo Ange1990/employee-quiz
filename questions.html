@@ -19,6 +19,10 @@
   form { background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.1); margin-bottom:20px; max-width:700px; margin-left:auto; margin-right:auto; }
   input, select, textarea { width:100%; padding:8px; margin:8px 0; border:1px solid #ccc; border-radius:6px; }
 
+  #options-container .option-row { display:flex; gap:10px; align-items:center; margin-bottom:5px; }
+  .option-input { flex:1; }
+  .remove-option-btn { background:#dc3545; color:#fff; border:none; border-radius:5px; cursor:pointer; padding:4px 8px; }
+
   .question-card {
     background:#fff; padding:15px; margin-bottom:12px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1);
     max-width:700px; margin-left:auto; margin-right:auto; cursor:grab; display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -26,15 +30,11 @@
   .question-text { flex:1; word-break:break-word; }
   .question-type { font-weight:600; color:#555; min-width:80px; }
   .question-order { font-weight:600; color:#333; min-width:70px; text-align:center; }
-  .options-list { margin-top:8px; padding-left:20px; font-size:14px; }
   .action-btn { padding:6px 10px; border:none; border-radius:6px; font-weight:600; cursor:pointer; }
   .edit-btn { background:#ffc107; color:#fff; }
   .edit-btn:hover { background:#e0a800; }
   .delete-btn { background:#dc3545; color:#fff; }
   .delete-btn:hover { background:#c82333; }
-  .option-input { display:flex; gap:8px; margin-bottom:6px; }
-  .option-input input { flex:1; }
-  .remove-option-btn { background:#dc3545; color:#fff; border:none; border-radius:4px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -54,11 +54,9 @@
     <option value="multiple">Πολλαπλής Επιλογής</option>
   </select>
 
-  <div id="options-container" style="display:none; margin-top:10px;">
-    <label>Επιλογές:</label>
-    <div id="option-list"></div>
-    <button type="button" id="add-option-btn">Προσθήκη Επιλογής</button>
-  </div>
+  <label for="question-options" id="options-label" style="display:none;">Επιλογές:</label>
+  <div id="options-container" style="display:none;"></div>
+  <button type="button" id="add-option-btn" style="display:none;">➕ Προσθήκη Επιλογής</button>
 
   <button type="submit" id="add-btn">Προσθήκη Ερώτησης</button>
 </form>
@@ -92,8 +90,8 @@ const logoutBtn = document.getElementById("logout-btn");
 const backBtn = document.getElementById("back-btn");
 const saveOrderBtn = document.getElementById("save-order-btn");
 const optionsContainer = document.getElementById("options-container");
-const optionList = document.getElementById("option-list");
 const addOptionBtn = document.getElementById("add-option-btn");
+const optionsLabel = document.getElementById("options-label");
 
 let editId = null;
 
@@ -105,69 +103,74 @@ auth.onAuthStateChanged(user=>{
 });
 
 logoutBtn.addEventListener("click", ()=>auth.signOut().then(()=>window.location.href="index.html"));
-backBtn.addEventListener("click", ()=>window.location.href="dashboard.html"));
+backBtn.addEventListener("click", ()=>window.location.href="dashboard.html");
 
-// --- Διαχείριση τύπου ερώτησης ---
+// --- Διαχείριση multiple choice επιλογών ---
 typeSelect.addEventListener("change", ()=>{
   if(typeSelect.value === "multiple"){
+    optionsLabel.style.display = "block";
     optionsContainer.style.display = "block";
+    addOptionBtn.style.display = "inline-block";
+    if(optionsContainer.children.length === 0) addOptionField();
   } else {
+    optionsLabel.style.display = "none";
     optionsContainer.style.display = "none";
-    optionList.innerHTML = "";
+    addOptionBtn.style.display = "none";
+    optionsContainer.innerHTML = "";
   }
 });
 
-// --- Προσθήκη επιλογής ---
-addOptionBtn.addEventListener("click", ()=>{
-  const div = document.createElement("div");
-  div.className = "option-input";
+addOptionBtn.addEventListener("click", ()=>addOptionField());
+
+function addOptionField(value=""){
+  const row = document.createElement("div");
+  row.className = "option-row";
   const input = document.createElement("input");
   input.type = "text";
-  input.placeholder = "Γράψε επιλογή...";
+  input.className = "option-input";
+  input.placeholder = `Περιεχόμενο επιλογής ${String.fromCharCode(65 + optionsContainer.children.length)}`;
+  input.value = value;
+
   const removeBtn = document.createElement("button");
   removeBtn.type = "button";
   removeBtn.className = "remove-option-btn";
-  removeBtn.textContent = "✖";
-  removeBtn.addEventListener("click", ()=>div.remove());
-  div.appendChild(input);
-  div.appendChild(removeBtn);
-  optionList.appendChild(div);
-});
+  removeBtn.textContent = "❌";
+  removeBtn.addEventListener("click", ()=>row.remove());
 
-// --- Προσθήκη ή Επεξεργασία ερώτησης ---
+  row.appendChild(input);
+  row.appendChild(removeBtn);
+  optionsContainer.appendChild(row);
+}
+
+// --- Προσθήκη ή Επεξεργασία ---
 form.addEventListener("submit", e=>{
   e.preventDefault();
   const text = textInput.value.trim();
   const type = typeSelect.value;
+  let options = [];
+
   if(!text) return alert("Πληκτρολόγησε κείμενο.");
 
-  let options = [];
   if(type === "multiple"){
-    optionList.querySelectorAll("input").forEach(inp=>{
-      if(inp.value.trim()!=="") options.push(inp.value.trim());
-    });
-    if(options.length<2) return alert("Πρέπει να δώσεις τουλάχιστον 2 επιλογές.");
+    const optionInputs = optionsContainer.querySelectorAll(".option-input");
+    optionInputs.forEach(inp=>{ if(inp.value.trim()) options.push(inp.value.trim()); });
+    if(options.length === 0) return alert("Πρέπει να δώσεις τουλάχιστον μία επιλογή.");
   }
 
-  const saveQuestion = (orderNum)=>{
-    let newQuestion = { text, type, order: orderNum };
-    if(type==="multiple") newQuestion.options = options;
+  if(editId){
+    db.collection("questions").doc(editId).update({ text, type, options: options.length ? options : firebase.firestore.FieldValue.delete() })
+      .then(()=>{ editId=null; form.reset(); optionsContainer.innerHTML=""; loadQuestions(); });
+    return;
+  }
 
-    const action = editId ? db.collection("questions").doc(editId).update(newQuestion) : db.collection("questions").add(newQuestion);
-
-    action.then(()=>{ editId=null; form.reset(); optionList.innerHTML=""; optionsContainer.style.display="none"; loadQuestions(); })
-          .catch(err=>console.error(err));
-  };
-
-  // Αν νέα ερώτηση, βρες μέγιστη σειρά
-  if(!editId){
-    db.collection("questions").orderBy("order","desc").limit(1).get()
-      .then(snapshot=>{
-        let maxOrder=0;
-        snapshot.forEach(doc=>{ maxOrder = doc.data().order || 0; });
-        saveQuestion(maxOrder+1);
-      });
-  } else saveQuestion(null);
+  db.collection("questions").orderBy("order","desc").limit(1).get()
+    .then(snapshot=>{
+      let maxOrder=0;
+      snapshot.forEach(doc=>{ maxOrder = doc.data().order || 0; });
+      return db.collection("questions").add({ text, type, order: maxOrder+1, ...(options.length && {options}) });
+    })
+    .then(()=>{ form.reset(); optionsContainer.innerHTML=""; loadQuestions(); })
+    .catch(err=>console.error(err));
 });
 
 // --- Φόρτωση ερωτήσεων ---
@@ -189,7 +192,7 @@ function loadQuestions(){
 
         const typeDiv = document.createElement("div");
         typeDiv.className="question-type";
-        typeDiv.textContent = data.type==="open"?"Ανοικτή":data.type==="scale-stars"?"Αστεράκια":"Πολλαπλής";
+        typeDiv.textContent = data.type==="open"?"Ανοικτή":(data.type==="scale-stars"?"Αστεράκια":"Πολλαπλής Επιλογής");
 
         const orderSpan = document.createElement("span");
         orderSpan.className="question-order";
@@ -201,25 +204,11 @@ function loadQuestions(){
         editBtn.addEventListener("click", ()=>{
           textInput.value = data.text;
           typeSelect.value = data.type;
-          typeSelect.dispatchEvent(new Event("change"));
+          optionsContainer.innerHTML = "";
           if(data.type==="multiple" && data.options){
-            optionList.innerHTML="";
-            data.options.forEach(opt=>{
-              const div = document.createElement("div");
-              div.className="option-input";
-              const input = document.createElement("input");
-              input.type="text";
-              input.value = opt;
-              const removeBtn = document.createElement("button");
-              removeBtn.type="button";
-              removeBtn.className = "remove-option-btn";
-              removeBtn.textContent = "✖";
-              removeBtn.addEventListener("click", ()=>div.remove());
-              div.appendChild(input);
-              div.appendChild(removeBtn);
-              optionList.appendChild(div);
-            });
+            data.options.forEach(opt => addOptionField(opt));
           }
+          typeSelect.dispatchEvent(new Event("change"));
           editId = doc.id;
         });
 
