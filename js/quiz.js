@@ -4,6 +4,7 @@ const form = document.getElementById("quiz-form");
 const userEmailSpan = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
 const progressBar = document.getElementById("progress");
+
 const TIMER_TOTAL = 10 * 60; // 10 λεπτά
 const timerDisplay = document.createElement("div");
 timerDisplay.style.marginBottom = "15px";
@@ -41,7 +42,7 @@ function loadQuestions() {
             questions = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
-                if (data.type === "open" || data.type === "scale-stars") {
+                if (["open", "scale-stars", "multiple"].includes(data.type)) {
                     questions.push({ id: doc.id, ...data });
                 }
             });
@@ -69,9 +70,9 @@ function startTimer() {
 
         if (remaining <= 0) {
             clearInterval(timerInterval);
-            lockQuiz();
             timerDisplay.textContent = "Χρόνος: 00:00";
             localStorage.removeItem("quizStartTime");
+            submitQuiz();
             return;
         }
 
@@ -83,7 +84,7 @@ function startTimer() {
 
 // --- Κλείδωμα Quiz ---
 function lockQuiz() {
-    form.querySelectorAll("textarea, .stars span, button").forEach(el => el.disabled = true);
+    form.querySelectorAll("textarea, .stars span, input[type=radio], button").forEach(el => el.disabled = true);
     const msg = document.createElement("div");
     msg.textContent = "⏰ Ο χρόνος έληξε! Δεν μπορείτε να απαντήσετε πλέον.";
     msg.style.textAlign = "center";
@@ -161,6 +162,28 @@ function showQuestion(index) {
         starsWrapper.appendChild(labelsDiv);
 
         card.appendChild(starsWrapper);
+    } else if (q.type === "multiple") {
+        const optionsDiv = document.createElement("div");
+        optionsDiv.className = "options";
+
+        q.options.forEach(opt => {
+            const label = document.createElement("label");
+            const input = document.createElement("input");
+            input.type = "radio";
+            input.name = q.id;
+            input.value = opt;
+            if (answers[q.id] === opt) input.checked = true;
+
+            input.addEventListener("change", () => {
+                answers[q.id] = opt;
+            });
+
+            label.appendChild(input);
+            label.appendChild(document.createTextNode(opt));
+            optionsDiv.appendChild(label);
+        });
+
+        card.appendChild(optionsDiv);
     }
 
     container.appendChild(card);
@@ -211,6 +234,7 @@ function saveAnswerAndMove(step) {
         const textarea = form.querySelector(`textarea[name="${q.id}"]`);
         if (textarea) answers[q.id] = textarea.value.trim();
     }
+    // multiple & scale-stars αποθηκεύεται onChange/onClick
 
     if (step !== 0) showQuestion(currentIndex + step);
 }
@@ -222,11 +246,9 @@ function updateProgress() {
 }
 
 // --- Υποβολή απαντήσεων ---
-form.addEventListener("submit", e => {
-    e.preventDefault();
+function submitQuiz() {
     saveAnswerAndMove(0);
-
-    if (!confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;")) return;
+    lockQuiz();
 
     const user = auth.currentUser;
     if (user) {
@@ -242,4 +264,11 @@ form.addEventListener("submit", e => {
             localStorage.removeItem("quizStartTime");
         }).catch(err => console.error("Σφάλμα αποθήκευσης:", err));
     }
+}
+
+// Submit από button
+form.addEventListener("submit", e => {
+    e.preventDefault();
+    if (!confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;")) return;
+    submitQuiz();
 });
