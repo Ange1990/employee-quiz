@@ -4,11 +4,10 @@ const exportBtn = document.getElementById("export-btn");
 const searchInput = document.getElementById("search-input");
 const manageBtn = document.getElementById("manage-questions-btn");
 
-let allResults = [];       // Αποθήκευση όλων των αποτελεσμάτων
-let allQuestions = {};     // Ερωτήσεις με id, text, type
-let questionsOrder = [];   // Σειρά ερωτήσεων
+let allResults = [];
+let allQuestions = {}; // {id: {text, type, options}}
+let questionsOrder = [];
 
-// Έλεγχος σύνδεσης και CEO
 auth.onAuthStateChanged(user => {
   if (!user) {
     window.location.href = "index.html";
@@ -22,31 +21,29 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-// Logout
 logoutBtn.addEventListener("click", () => {
-  auth.signOut().then(() => {
-    window.location.href = "index.html";
-  });
+  auth.signOut().then(() => window.location.href = "index.html");
 });
 
-// Μετάβαση στη σελίδα διαχείρισης ερωτήσεων
 manageBtn.addEventListener("click", () => {
   window.location.href = "questions.html";
 });
 
-// Φόρτωση όλων των ερωτήσεων
+// --- Load all questions
 function loadQuestions() {
-  return db.collection("questions").get()
+  return db.collection("questions").orderBy("order").get()
     .then(snapshot => {
+      allQuestions = {};
+      questionsOrder = [];
       snapshot.forEach(doc => {
         const qData = doc.data();
-        allQuestions[doc.id] = { text: qData.text, type: qData.type };
+        allQuestions[doc.id] = { text: qData.text, type: qData.type, options: qData.options || [] };
         questionsOrder.push(doc.id);
       });
     });
 }
 
-// Φόρτωση αποτελεσμάτων
+// --- Load results
 function loadResults() {
   db.collection("results").orderBy("timestamp", "desc").get()
     .then(snapshot => {
@@ -59,14 +56,14 @@ function loadResults() {
     .catch(error => console.error("Σφάλμα κατά τη φόρτωση αποτελεσμάτων:", error));
 }
 
-// Εμφάνιση αποτελεσμάτων
+// --- Render results
 function renderResults(resultsArray) {
   resultsBody.innerHTML = "";
   resultsArray.forEach(item => {
     const docId = item.id;
     const data = item.data;
     const dateObj = data.timestamp ? data.timestamp.toDate() : null;
-    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2, "0")}` : "";
+    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,"0")}` : "";
 
     const row = document.createElement("tr");
 
@@ -79,24 +76,21 @@ function renderResults(resultsArray) {
         let ans = data.answers[qId];
         let displayAns = ans;
 
-        // Εμφάνιση αστεριών για scale-stars
-        if (question && question.type === "scale-stars") {
-          const rating = Number(ans);
-          if (rating >= 1 && rating <= 5) {
-            displayAns = "⭐".repeat(rating);
+        if (question) {
+          if (question.type === "scale-stars") {
+            const rating = Number(ans);
+            displayAns = (rating >= 1 && rating <= 5) ? "⭐".repeat(rating) : ans;
           }
-        }
-
-        // Αν είναι array (multi)
-        if (Array.isArray(ans)) {
-          displayAns = ans.join(", ");
+          if (question.type === "multiple" && Array.isArray(ans)) {
+            displayAns = ans.join(", ");
+          }
         }
 
         return `${questionText}\nΑπάντηση: ${displayAns}`;
       })
       .join("\n\n");
 
-    const answersHtml = answersText.replace(/\n/g, "<br>");
+    const answersHtml = answersText.replace(/\n/g,"<br>");
 
     row.innerHTML = `
       <td>${data.email}</td>
@@ -105,9 +99,8 @@ function renderResults(resultsArray) {
       <td><button class="delete-btn">Διαγραφή</button></td>
     `;
 
-    // Διαγραφή αποτελέσματος
     row.querySelector(".delete-btn").addEventListener("click", () => {
-      if (confirm("Είσαι σίγουρος ότι θέλεις να διαγράψεις αυτό το αποτέλεσμα;")) {
+      if(confirm("Είσαι σίγουρος ότι θέλεις να διαγράψεις αυτό το αποτέλεσμα;")){
         db.collection("results").doc(docId).delete()
           .then(() => {
             row.remove();
@@ -121,19 +114,16 @@ function renderResults(resultsArray) {
   });
 }
 
-// Φίλτρο αναζήτησης
+// --- Search filter
 searchInput.addEventListener("input", () => {
   const query = searchInput.value.toLowerCase();
   const filtered = allResults.filter(item => item.data.email.toLowerCase().includes(query));
   renderResults(filtered);
 });
 
-// Εξαγωγή σε CSV/Excel
+// --- Export CSV
 exportBtn.addEventListener("click", () => {
-  if (!allResults.length) {
-    alert("Δεν υπάρχουν αποτελέσματα για εξαγωγή.");
-    return;
-  }
+  if (!allResults.length) { alert("Δεν υπάρχουν αποτελέσματα για εξαγωγή."); return; }
 
   const headers = ["Email Υπαλλήλου", "Απαντήσεις", "Ημερομηνία Υποβολής"];
   const rows = [headers.join(",")];
@@ -141,7 +131,7 @@ exportBtn.addEventListener("click", () => {
   allResults.forEach(item => {
     const data = item.data;
     const dateObj = data.timestamp ? data.timestamp.toDate() : null;
-    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2, "0")}` : "";
+    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,"0")}` : "";
 
     const answersText = questionsOrder
       .filter(qId => data.answers[qId] !== undefined)
@@ -151,17 +141,14 @@ exportBtn.addEventListener("click", () => {
         let ans = data.answers[qId];
         let displayAns = ans;
 
-        // Αστεράκια
-        if (question && question.type === "scale-stars") {
-          const rating = Number(ans);
-          if (rating >= 1 && rating <= 5) {
-            displayAns = "⭐".repeat(rating);
+        if(question){
+          if(question.type === "scale-stars") {
+            const rating = Number(ans);
+            displayAns = (rating >= 1 && rating <=5) ? "⭐".repeat(rating) : ans;
           }
-        }
-
-        // Αν είναι array (multi)
-        if (Array.isArray(ans)) {
-          displayAns = ans.join(", ");
+          if(question.type === "multiple" && Array.isArray(ans)) {
+            displayAns = ans.join(", ");
+          }
         }
 
         return `${questionText}: ${displayAns}`;
