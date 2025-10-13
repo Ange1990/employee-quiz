@@ -8,13 +8,9 @@
   h1 { text-align:center; margin-bottom:20px; color:#333; }
   button { padding:8px 14px; border:none; border-radius:6px; cursor:pointer; font-weight:600; margin:5px; }
   #logout-btn { background:#ff4b2b; color:#fff; }
-  #logout-btn:hover { background:#ff6a4d; }
   #back-btn { background:#007bff; color:#fff; }
-  #back-btn:hover { background:#0056b3; }
   #add-btn { background:#28a745; color:#fff; }
-  #add-btn:hover { background:#218838; }
   #save-order-btn { background:#6f42c1; color:#fff; }
-  #save-order-btn:hover { background:#5a32a3; }
 
   form { background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.1); margin-bottom:20px; max-width:700px; margin-left:auto; margin-right:auto; }
   input, select, textarea { width:100%; padding:8px; margin:8px 0; border:1px solid #ccc; border-radius:6px; }
@@ -23,18 +19,13 @@
   .option-input { flex:1; }
   .remove-option-btn { background:#dc3545; color:#fff; border:none; border-radius:5px; cursor:pointer; padding:4px 8px; }
 
-  .question-card {
-    background:#fff; padding:15px; margin-bottom:12px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1);
-    max-width:700px; margin-left:auto; margin-right:auto; cursor:grab; display:flex; align-items:center; justify-content:space-between; gap:10px;
-  }
+  .question-card { background:#fff; padding:15px; margin-bottom:12px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); max-width:700px; margin-left:auto; margin-right:auto; cursor:grab; display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .question-text { flex:1; word-break:break-word; }
   .question-type { font-weight:600; color:#555; min-width:80px; }
   .question-order { font-weight:600; color:#333; min-width:70px; text-align:center; }
   .action-btn { padding:6px 10px; border:none; border-radius:6px; font-weight:600; cursor:pointer; }
   .edit-btn { background:#ffc107; color:#fff; }
-  .edit-btn:hover { background:#e0a800; }
   .delete-btn { background:#dc3545; color:#fff; }
-  .delete-btn:hover { background:#c82333; }
 </style>
 </head>
 <body>
@@ -58,6 +49,13 @@
   <div id="options-container" style="display:none;"></div>
   <button type="button" id="add-option-btn" style="display:none;">➕ Προσθήκη Επιλογής</button>
 
+  <label for="question-group">Ομάδα Ερώτησης:</label>
+  <select id="question-group">
+      <option value="1">Ομάδα 1</option>
+      <option value="2">Ομάδα 2</option>
+      <option value="3">Ομάδα 3</option>
+  </select>
+
   <button type="submit" id="add-btn">Προσθήκη Ερώτησης</button>
 </form>
 
@@ -70,9 +68,11 @@
 <script src="js/firebase-config.js"></script>
 
 <script>
+// --- DOM elements ---
 const form = document.getElementById("question-form");
 const textInput = document.getElementById("question-text");
 const typeSelect = document.getElementById("question-type");
+const groupSelect = document.getElementById("question-group");
 const questionsContainer = document.getElementById("questions-container");
 const logoutBtn = document.getElementById("logout-btn");
 const backBtn = document.getElementById("back-btn");
@@ -109,7 +109,6 @@ typeSelect.addEventListener("change", () => {
 });
 
 addOptionBtn.addEventListener("click", () => addOptionField());
-
 function addOptionField(value = "") {
   const row = document.createElement("div");
   row.className = "option-row";
@@ -130,11 +129,12 @@ function addOptionField(value = "") {
   optionsContainer.appendChild(row);
 }
 
-// --- Προσθήκη ή επεξεργασία ---
+// --- Προσθήκη/Επεξεργασία ---
 form.addEventListener("submit", e => {
   e.preventDefault();
   const text = textInput.value.trim();
   const type = typeSelect.value;
+  const group = parseInt(groupSelect.value);
   let options = [];
 
   if(!text) return alert("Συμπλήρωσε το κείμενο της ερώτησης.");
@@ -151,11 +151,11 @@ form.addEventListener("submit", e => {
       let maxOrder = 0;
       snapshot.forEach(doc => { maxOrder = Number(doc.data().order) || 0; });
 
-      const questionData = { text, type, order: maxOrder + 1 };
+      const questionData = { text, type, order: maxOrder + 1, group };
       if(options.length > 0) questionData.options = options;
 
       if(editId){
-        return db.collection("questions").doc(editId).update(questionData).then(() => editId = null);
+        return db.collection("questions").doc(editId).update(questionData).then(() => editId=null);
       } else {
         return db.collection("questions").add(questionData);
       }
@@ -187,7 +187,7 @@ function loadQuestions(){
 
         const orderSpan = document.createElement("span");
         orderSpan.className = "question-order";
-        orderSpan.textContent = `Σειρά: ${data.order}`;
+        orderSpan.textContent = `Σειρά: ${data.order} | Ομάδα: ${data.group}`;
 
         const editBtn = document.createElement("button");
         editBtn.className = "action-btn edit-btn";
@@ -195,8 +195,9 @@ function loadQuestions(){
         editBtn.addEventListener("click", () => {
           textInput.value = data.text;
           typeSelect.value = data.type;
+          groupSelect.value = data.group;
           optionsContainer.innerHTML = "";
-          if(data.type === "multiple" && data.options) data.options.forEach(opt => addOptionField(opt));
+          if(data.type==="multiple" && data.options) data.options.forEach(opt => addOptionField(opt));
           typeSelect.dispatchEvent(new Event("change"));
           editId = doc.id;
         });
@@ -245,7 +246,7 @@ saveOrderBtn.addEventListener("click", () => {
   cards.forEach((card, i) => {
     const id = card.dataset.id;
     card.dataset.order = i + 1;
-    card.querySelector(".question-order").textContent = `Σειρά: ${i+1}`;
+    card.querySelector(".question-order").textContent = `Σειρά: ${i+1} | Ομάδα: ${card.dataset.group}`;
     db.collection("questions").doc(id).update({ order: i + 1 });
   });
   alert("Η σειρά αποθηκεύτηκε!");
