@@ -49,8 +49,8 @@
   <div id="options-container" style="display:none;"></div>
   <button type="button" id="add-option-btn" style="display:none;">➕ Προσθήκη Επιλογής</button>
 
-  <label for="question-group">Ομάδα Ερώτησης (αφήστε κενό για καμία):</label>
-  <input type="text" id="question-group" placeholder="π.χ. 1, 2 ή 3">
+  <label for="question-group">Ομάδα Ερώτησης (προαιρετικά):</label>
+  <input type="text" id="question-group" placeholder="Αφήστε κενό για όλες τις ομάδες">
 
   <button type="submit" id="add-btn">Προσθήκη Ερώτησης</button>
 </form>
@@ -82,8 +82,12 @@ let editId = null;
 // --- Έλεγχος CEO ---
 auth.onAuthStateChanged(user => {
   if(!user) window.location.href="index.html";
-  else if(user.email !== "nafpliotis@sspc.gr"){ alert("Δεν έχετε πρόσβαση"); window.location.href="index.html"; }
-  else loadQuestions();
+  else if(user.email !== "nafpliotis@sspc.gr"){
+    alert("Δεν έχετε πρόσβαση"); 
+    window.location.href="index.html";
+  } else {
+    loadQuestions();
+  }
 });
 
 logoutBtn.addEventListener("click", () => auth.signOut().then(() => window.location.href="index.html"));
@@ -133,12 +137,11 @@ form.addEventListener("submit", e => {
   const groupVal = groupInput.value.trim();
   let group = null;
   if(groupVal !== ""){
-      const g = parseInt(groupVal);
-      if(!isNaN(g)) group = g;
+    const g = parseInt(groupVal);
+    if(!isNaN(g)) group = g;
   }
 
   let options = [];
-  if(!text) return alert("Συμπλήρωσε το κείμενο της ερώτησης.");
   if(type === "multiple"){
     optionsContainer.querySelectorAll(".option-input").forEach(inp => {
       if(inp.value.trim()) options.push(inp.value.trim());
@@ -153,16 +156,16 @@ form.addEventListener("submit", e => {
 
       const questionData = { text, type, order: maxOrder + 1 };
       if(options.length > 0) questionData.options = options;
-
-      // --- Ορισμός ή διαγραφή ομάδας ---
-      if(group !== null){
-          questionData.group = group;
-      } else {
-          questionData.group = firebase.firestore.FieldValue.delete();
-      }
+      if(group !== null) questionData.group = group; // προσθήκη μόνο αν υπάρχει αριθμός
 
       if(editId){
-        return db.collection("questions").doc(editId).update(questionData).then(() => editId=null);
+        // Επεξεργασία: αν group είναι null, διαγράφεται
+        const updateData = { text, type };
+        if(options.length > 0) updateData.options = options;
+        if(group !== null) updateData.group = group;
+        else updateData.group = firebase.firestore.FieldValue.delete();
+
+        return db.collection("questions").doc(editId).update(updateData).then(() => editId=null);
       } else {
         return db.collection("questions").add(questionData);
       }
@@ -194,7 +197,7 @@ function loadQuestions(){
 
         const orderSpan = document.createElement("span");
         orderSpan.className = "question-order";
-        orderSpan.textContent = `Σειρά: ${data.order}${data.group !== undefined ? " | Ομάδα: "+data.group : ""}`;
+        orderSpan.textContent = `Σειρά: ${data.order} | Ομάδα: ${data.group !== undefined ? data.group : "Όλες"}`;
 
         const editBtn = document.createElement("button");
         editBtn.className = "action-btn edit-btn";
@@ -253,7 +256,8 @@ saveOrderBtn.addEventListener("click", () => {
   cards.forEach((card, i) => {
     const id = card.dataset.id;
     card.dataset.order = i + 1;
-    card.querySelector(".question-order").textContent = `Σειρά: ${i+1}${card.dataset.group ? " | Ομάδα: "+card.dataset.group : ""}`;
+    const currentGroup = card.querySelector(".question-order").textContent.split("|")[1].trim();
+    card.querySelector(".question-order").textContent = `Σειρά: ${i+1} | ${currentGroup}`;
     db.collection("questions").doc(id).update({ order: i + 1 });
   });
   alert("Η σειρά αποθηκεύτηκε!");
