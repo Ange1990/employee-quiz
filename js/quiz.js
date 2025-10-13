@@ -5,7 +5,7 @@ const userEmailSpan = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
 const progressBar = document.getElementById("progress");
 
-const TIMER_TOTAL = 10 * 60; // 10 λεπτά
+const TIMER_TOTAL = 15 * 60; // 15 λεπτά
 const timerDisplay = document.createElement("div");
 timerDisplay.style.marginBottom = "15px";
 timerDisplay.style.fontWeight = "600";
@@ -293,4 +293,5 @@ form.addEventListener("submit", e => {
   if (!confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;")) return;
   submitQuiz();
 });
+
 
