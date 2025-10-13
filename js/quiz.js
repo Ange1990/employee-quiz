@@ -228,6 +228,7 @@ function renderNavigation() {
     const prevBtn = document.createElement("button");
     prevBtn.type = "button";
     prevBtn.textContent = "⬅ Προηγούμενο";
+    prevBtn.className = "nav-btn prev";
     prevBtn.onclick = () => saveAnswerAndMove(-1);
     nav.appendChild(prevBtn);
   }
@@ -236,6 +237,7 @@ function renderNavigation() {
     const nextBtn = document.createElement("button");
     nextBtn.type = "button";
     nextBtn.textContent = "Επόμενο ➡";
+    nextBtn.className = "nav-btn next";
     nextBtn.onclick = () => saveAnswerAndMove(1);
     nav.appendChild(nextBtn);
   }
@@ -291,3 +293,4 @@ form.addEventListener("submit", e => {
   if (!confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;")) return;
   submitQuiz();
 });
+
