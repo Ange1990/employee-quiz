@@ -46,11 +46,11 @@
   </select>
 
   <label id="options-label" style="display:none;">Επιλογές:</label>
-  <div id="options-container" style="display:none"></div>
+  <div id="options-container" style="display:none;"></div>
   <button type="button" id="add-option-btn" style="display:none;">➕ Προσθήκη Επιλογής</button>
 
-  <label for="question-group">Ομάδα Ερώτησης (αφήστε κενό αν δεν υπάρχει ομάδα):</label>
-  <input type="text" id="question-group" placeholder="Π.χ. 1, 2 ή 3">
+  <label for="question-group">Ομάδα Ερώτησης (αφήστε κενό για καμία):</label>
+  <input type="text" id="question-group" placeholder="π.χ. 1, 2 ή 3">
 
   <button type="submit" id="add-btn">Προσθήκη Ερώτησης</button>
 </form>
@@ -82,10 +82,8 @@ let editId = null;
 // --- Έλεγχος CEO ---
 auth.onAuthStateChanged(user => {
   if(!user) window.location.href="index.html";
-  else if(user.email !== "nafpliotis@sspc.gr"){ 
-    alert("Δεν έχετε πρόσβαση"); 
-    window.location.href="index.html"; 
-  } else loadQuestions();
+  else if(user.email !== "nafpliotis@sspc.gr"){ alert("Δεν έχετε πρόσβαση"); window.location.href="index.html"; }
+  else loadQuestions();
 });
 
 logoutBtn.addEventListener("click", () => auth.signOut().then(() => window.location.href="index.html"));
@@ -132,12 +130,10 @@ form.addEventListener("submit", e => {
   e.preventDefault();
   const text = textInput.value.trim();
   const type = typeSelect.value;
-
-  // --- Επεξεργασία ομάδας ---
-  const groupValue = groupInput.value.trim();
+  const groupVal = groupInput.value.trim();
   let group = null;
-  if(groupValue !== ""){
-      const g = parseInt(groupValue);
+  if(groupVal !== ""){
+      const g = parseInt(groupVal);
       if(!isNaN(g)) group = g;
   }
 
@@ -156,8 +152,14 @@ form.addEventListener("submit", e => {
       snapshot.forEach(doc => { maxOrder = Number(doc.data().order) || 0; });
 
       const questionData = { text, type, order: maxOrder + 1 };
-      if(group !== null) questionData.group = group;
       if(options.length > 0) questionData.options = options;
+
+      // --- Ορισμός ή διαγραφή ομάδας ---
+      if(group !== null){
+          questionData.group = group;
+      } else {
+          questionData.group = firebase.firestore.FieldValue.delete();
+      }
 
       if(editId){
         return db.collection("questions").doc(editId).update(questionData).then(() => editId=null);
@@ -165,11 +167,7 @@ form.addEventListener("submit", e => {
         return db.collection("questions").add(questionData);
       }
     })
-    .then(() => { 
-      form.reset(); 
-      optionsContainer.innerHTML = ""; 
-      loadQuestions(); 
-    })
+    .then(() => { form.reset(); optionsContainer.innerHTML = ""; loadQuestions(); })
     .catch(err => console.error("Write failed:", err));
 });
 
@@ -196,7 +194,7 @@ function loadQuestions(){
 
         const orderSpan = document.createElement("span");
         orderSpan.className = "question-order";
-        orderSpan.textContent = `Σειρά: ${data.order} | Ομάδα: ${data.group ?? "—"}`;
+        orderSpan.textContent = `Σειρά: ${data.order}${data.group !== undefined ? " | Ομάδα: "+data.group : ""}`;
 
         const editBtn = document.createElement("button");
         editBtn.className = "action-btn edit-btn";
@@ -204,7 +202,7 @@ function loadQuestions(){
         editBtn.addEventListener("click", () => {
           textInput.value = data.text;
           typeSelect.value = data.type;
-          groupInput.value = data.group ?? "";
+          groupInput.value = data.group !== undefined ? data.group : "";
           optionsContainer.innerHTML = "";
           if(data.type==="multiple" && data.options) data.options.forEach(opt => addOptionField(opt));
           typeSelect.dispatchEvent(new Event("change"));
@@ -255,7 +253,7 @@ saveOrderBtn.addEventListener("click", () => {
   cards.forEach((card, i) => {
     const id = card.dataset.id;
     card.dataset.order = i + 1;
-    card.querySelector(".question-order").textContent = `Σειρά: ${i+1} | Ομάδα: ${card.dataset.group ?? "—"}`;
+    card.querySelector(".question-order").textContent = `Σειρά: ${i+1}${card.dataset.group ? " | Ομάδα: "+card.dataset.group : ""}`;
     db.collection("questions").doc(id).update({ order: i + 1 });
   });
   alert("Η σειρά αποθηκεύτηκε!");
