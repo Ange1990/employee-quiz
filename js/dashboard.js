@@ -3,9 +3,10 @@ const logoutBtn = document.getElementById("logout-btn");
 const exportBtn = document.getElementById("export-btn");
 const searchInput = document.getElementById("search-input");
 const manageBtn = document.getElementById("manage-questions-btn");
+const summaryDiv = document.getElementById("summary");
 
 let allResults = [];
-let allQuestions = {}; // {id: {text, type, options}}
+let allQuestions = {};
 let questionsOrder = [];
 
 auth.onAuthStateChanged(user => {
@@ -37,7 +38,12 @@ function loadQuestions() {
       questionsOrder = [];
       snapshot.forEach(doc => {
         const qData = doc.data();
-        allQuestions[doc.id] = { text: qData.text, type: qData.type, options: qData.options || [] };
+        allQuestions[doc.id] = {
+          text: qData.text,
+          type: qData.type,
+          options: qData.options || [],
+          correctAnswer: qData.correctAnswer || null
+        };
         questionsOrder.push(doc.id);
       });
     });
@@ -48,9 +54,7 @@ function loadResults() {
   db.collection("results").orderBy("timestamp", "desc").get()
     .then(snapshot => {
       allResults = [];
-      snapshot.forEach(doc => {
-        allResults.push({ id: doc.id, data: doc.data() });
-      });
+      snapshot.forEach(doc => allResults.push({ id: doc.id, data: doc.data() }));
       renderResults(allResults);
     })
     .catch(error => console.error("Σφάλμα κατά τη φόρτωση αποτελεσμάτων:", error));
@@ -59,42 +63,77 @@ function loadResults() {
 // --- Render results
 function renderResults(resultsArray) {
   resultsBody.innerHTML = "";
+  summaryDiv.textContent = "";
+
+  let totalCorrect = 0;
+  let totalQuestions = 0;
+
   resultsArray.forEach(item => {
-    const docId = item.id;
-    const data = item.data;
+    const { id: docId, data } = item;
     const dateObj = data.timestamp ? data.timestamp.toDate() : null;
     const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,"0")}` : "";
 
     const row = document.createElement("tr");
 
-    // Δημιουργία απαντήσεων με σωστή σειρά
-    const answersText = questionsOrder
+    let userCorrect = 0;
+    let userTotal = 0;
+
+    const answersHtml = questionsOrder
       .filter(qId => data.answers[qId] !== undefined)
       .map(qId => {
         const question = allQuestions[qId];
         const questionText = question ? question.text : qId;
+        const correct = question?.correctAnswer;
         let ans = data.answers[qId];
         let displayAns = ans;
 
         if (question) {
+          if (question.type === "multiple" && Array.isArray(ans)) {
+            displayAns = ans.join(", ");
+          }
           if (question.type === "scale-stars") {
             const rating = Number(ans);
             displayAns = (rating >= 1 && rating <= 5) ? "⭐".repeat(rating) : ans;
           }
-          if (question.type === "multiple" && Array.isArray(ans)) {
-            displayAns = ans.join(", ");
+        }
+
+        let isCorrect = false;
+        if (correct !== null && correct !== undefined) {
+          if (Array.isArray(correct)) {
+            isCorrect = Array.isArray(ans) && correct.sort().join(",") === ans.sort().join(",");
+          } else {
+            isCorrect = String(ans).trim().toLowerCase() === String(correct).trim().toLowerCase();
           }
         }
 
-        return `${questionText}\nΑπάντηση: ${displayAns}`;
-      })
-      .join("\n\n");
+        if (correct !== null) {
+          userTotal++;
+          if (isCorrect) userCorrect++;
+        }
 
-    const answersHtml = answersText.replace(/\n/g,"<br>");
+        const color = correct === null ? "#333" : (isCorrect ? "green" : "red");
+        const correctText = correct !== null ? `<br><small>Σωστή απάντηση: ${correct}</small>` : "";
+
+        return `<div style="margin-bottom:10px;">
+                  <strong>${questionText}</strong><br>
+                  <span style="color:${color}">Απάντηση: ${displayAns}</span>
+                  ${correctText}
+                </div>`;
+      })
+      .join("");
+
+    totalCorrect += userCorrect;
+    totalQuestions += userTotal;
+
+    const userPercentage = userTotal ? ((userCorrect / userTotal) * 100).toFixed(1) : 0;
+    const resultText = userPercentage >= 80 ? "✅ Επιτυχία" : "❌ Αποτυχία";
+    const resultColor = userPercentage >= 80 ? "green" : "red";
 
     row.innerHTML = `
       <td>${data.email}</td>
-      <td class="answers-cell">${answersHtml}</td>
+      <td class="answers-cell">${answersHtml}<br>
+        <strong style="color:${resultColor}">${userCorrect}/${userTotal} σωστά (${userPercentage}%) - ${resultText}</strong>
+      </td>
       <td>${date}</td>
       <td><button class="delete-btn">Διαγραφή</button></td>
     `;
@@ -112,6 +151,12 @@ function renderResults(resultsArray) {
 
     resultsBody.appendChild(row);
   });
+
+  // συνοπτικά πάνω από τον πίνακα
+  if (totalQuestions > 0) {
+    const overall = ((totalCorrect / totalQuestions) * 100).toFixed(1);
+    summaryDiv.innerHTML = `🔍 <b>Συνολικά:</b> ${totalCorrect}/${totalQuestions} σωστές απαντήσεις (${overall}%)`;
+  }
 }
 
 // --- Search filter
@@ -119,53 +164,4 @@ searchInput.addEventListener("input", () => {
   const query = searchInput.value.toLowerCase();
   const filtered = allResults.filter(item => item.data.email.toLowerCase().includes(query));
   renderResults(filtered);
-});
-
-// --- Export CSV
-exportBtn.addEventListener("click", () => {
-  if (!allResults.length) { alert("Δεν υπάρχουν αποτελέσματα για εξαγωγή."); return; }
-
-  const headers = ["Email Υπαλλήλου", "Απαντήσεις", "Ημερομηνία Υποβολής"];
-  const rows = [headers.join(",")];
-
-  allResults.forEach(item => {
-    const data = item.data;
-    const dateObj = data.timestamp ? data.timestamp.toDate() : null;
-    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,"0")}` : "";
-
-    const answersText = questionsOrder
-      .filter(qId => data.answers[qId] !== undefined)
-      .map(qId => {
-        const question = allQuestions[qId];
-        const questionText = question ? question.text : qId;
-        let ans = data.answers[qId];
-        let displayAns = ans;
-
-        if(question){
-          if(question.type === "scale-stars") {
-            const rating = Number(ans);
-            displayAns = (rating >= 1 && rating <=5) ? "⭐".repeat(rating) : ans;
-          }
-          if(question.type === "multiple" && Array.isArray(ans)) {
-            displayAns = ans.join(", ");
-          }
-        }
-
-        return `${questionText}: ${displayAns}`;
-      })
-      .join("\r\n");
-
-    const row = [data.email, `"${answersText.replace(/"/g,'""')}"`, date].join(",");
-    rows.push(row);
-  });
-
-  const csvContent = "\uFEFF" + rows.join("\r\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `employee_quiz_results_${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
 });
