@@ -4,68 +4,138 @@
   <meta charset="UTF-8">
   <title>CEO Dashboard</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background:#f0f2f5; }
-    h1 { text-align:center; margin-bottom: 10px; color:#333; }
+    body { 
+      font-family: "Poppins", Arial, sans-serif; 
+      padding: 20px; 
+      background: #f0f2f5; 
+      color: #333;
+    }
+
+    h1 { 
+      text-align: center; 
+      margin-bottom: 10px; 
+      color: #222; 
+    }
 
     /* Κουμπιά */
     #logout-btn, #export-btn, #manage-questions-btn {
-      padding:8px 16px;
-      border:none;
-      border-radius:5px;
-      cursor:pointer;
-      color:#fff;
-      font-weight:600;
-      margin-bottom:15px;
-      margin-right:10px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #fff;
+      font-weight: 600;
+      margin-bottom: 15px;
+      margin-right: 10px;
+      transition: 0.3s;
     }
-    #logout-btn { background:#ff4b2b; }
-    #logout-btn:hover { background:#ff6a4d; }
-    #export-btn { background:#00c6ff; }
-    #export-btn:hover { background:#0072ff; }
-    #manage-questions-btn { background:#28a745; }
-    #manage-questions-btn:hover { background:#218838; }
+    #logout-btn { background: #ff4b2b; }
+    #logout-btn:hover { background: #ff6a4d; transform: scale(1.05); }
+    #export-btn { background: #00c6ff; }
+    #export-btn:hover { background: #0072ff; transform: scale(1.05); }
+    #manage-questions-btn { background: #28a745; }
+    #manage-questions-btn:hover { background: #218838; transform: scale(1.05); }
 
     /* Search input */
-    #search-input { padding:8px 12px; width:300px; border-radius:5px; border:1px solid #ccc; margin-bottom:15px; }
+    #search-input { 
+      padding: 8px 12px; 
+      width: 300px; 
+      border-radius: 5px; 
+      border: 1px solid #ccc; 
+      margin-bottom: 15px; 
+      font-size: 15px;
+    }
+
+    /* Summary */
+    #summary {
+      margin: 15px 0;
+      font-weight: 600;
+      color: #222;
+      font-size: 16px;
+    }
 
     /* Table */
-    .table-container { max-height: 65vh; overflow-y:auto; border:1px solid #ccc; border-radius:8px; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.1); }
-    table { width:100%; border-collapse: collapse; min-width:800px; }
-    th, td { padding:10px; border-bottom:1px solid #eee; text-align:left; vertical-align:top; }
-    th { background:#2575fc; color:#fff; position: sticky; top:0; z-index:2; }
-    tr:nth-child(even) { background:#f9f9f9; }
-    tr:hover { background:#f1f1f1; }
+    .table-container { 
+      max-height: 70vh; 
+      overflow-y: auto; 
+      border: 1px solid #ccc; 
+      border-radius: 8px; 
+      background: #fff; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+    }
+
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      min-width: 850px; 
+    }
+
+    th, td { 
+      padding: 10px; 
+      border-bottom: 1px solid #eee; 
+      text-align: left; 
+      vertical-align: top; 
+      font-size: 14px;
+    }
+
+    th { 
+      background: #2575fc; 
+      color: #fff; 
+      position: sticky; 
+      top: 0; 
+      z-index: 2; 
+      text-transform: uppercase;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+    }
+
+    tr:nth-child(even) { background: #f9f9f9; }
+    tr:hover { background: #f1f1f1; }
 
     .delete-btn {
-      padding:4px 8px;
-      border:none;
-      border-radius:4px;
-      cursor:pointer;
-      background:#ff4b2b;
-      color:#fff;
-      font-weight:600;
-      transition:0.2s;
+      padding: 5px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      background: #ff4b2b;
+      color: #fff;
+      font-weight: 600;
+      transition: 0.2s;
     }
-    .delete-btn:hover { background:#ff6a4d; }
+    .delete-btn:hover { background: #ff6a4d; }
 
-    td.answers-cell { white-space: pre-wrap; max-width:400px; }
+    td.answers-cell { 
+      white-space: pre-wrap; 
+      max-width: 400px; 
+      line-height: 1.4; 
+    }
+
+    @media (max-width: 768px) {
+      #search-input { width: 100%; margin-bottom: 10px; }
+      .table-container { overflow-x: auto; }
+      table { min-width: 700px; }
+    }
   </style>
 </head>
 <body>
 
-  <button id="logout-btn">Αποσύνδεση</button>
-  <button id="export-btn">Εξαγωγή σε Excel</button>
-  <button id="manage-questions-btn">Διαχείριση Ερωτήσεων</button>
+  <div style="display:flex; justify-content:flex-start; flex-wrap:wrap; align-items:center; gap:10px;">
+    <button id="logout-btn">Αποσύνδεση</button>
+    <button id="export-btn">Εξαγωγή σε Excel</button>
+    <button id="manage-questions-btn">Διαχείριση Ερωτήσεων</button>
+  </div>
 
-  <h1>Employee Quiz Results</h1>
+  <h1>Πίνακας Αποτελεσμάτων Ερωτηματολογίου</h1>
+
   <input type="text" id="search-input" placeholder="Αναζήτηση με email υπαλλήλου...">
+  <div id="summary"></div>
 
   <div class="table-container">
     <table>
       <thead>
         <tr>
           <th>Email Υπαλλήλου</th>
-          <th>Απαντήσεις</th>
+          <th>Απαντήσεις & Αποτελέσματα</th>
           <th>Ημερομηνία Υποβολής</th>
           <th>Ενέργειες</th>
         </tr>
@@ -74,10 +144,15 @@
     </table>
   </div>
 
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <!-- Firebase config -->
   <script src="js/firebase-config.js"></script>
+
+  <!-- Main logic -->
   <script src="js/dashboard.js"></script>
 
 </body>
