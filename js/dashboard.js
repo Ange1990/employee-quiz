@@ -3,10 +3,9 @@ const logoutBtn = document.getElementById("logout-btn");
 const exportBtn = document.getElementById("export-btn");
 const searchInput = document.getElementById("search-input");
 const manageBtn = document.getElementById("manage-questions-btn");
-const summaryDiv = document.getElementById("summary");
 
 let allResults = [];
-let allQuestions = {};
+let allQuestions = {}; // {id: {text, type, options, correctAnswer}}
 let questionsOrder = [];
 
 auth.onAuthStateChanged(user => {
@@ -30,7 +29,7 @@ manageBtn.addEventListener("click", () => {
   window.location.href = "questions.html";
 });
 
-// --- Load all questions
+// --- Load all questions ---
 function loadQuestions() {
   return db.collection("questions").orderBy("order").get()
     .then(snapshot => {
@@ -38,102 +37,84 @@ function loadQuestions() {
       questionsOrder = [];
       snapshot.forEach(doc => {
         const qData = doc.data();
-        allQuestions[doc.id] = {
-          text: qData.text,
-          type: qData.type,
-          options: qData.options || [],
-          correctAnswer: qData.correctAnswer || null
+        allQuestions[doc.id] = { 
+          text: qData.text, 
+          type: qData.type, 
+          options: qData.options || [], 
+          correctAnswer: qData.correctAnswer || null 
         };
         questionsOrder.push(doc.id);
       });
     });
 }
 
-// --- Load results
+// --- Load results ---
 function loadResults() {
   db.collection("results").orderBy("timestamp", "desc").get()
     .then(snapshot => {
       allResults = [];
-      snapshot.forEach(doc => allResults.push({ id: doc.id, data: doc.data() }));
+      snapshot.forEach(doc => {
+        allResults.push({ id: doc.id, data: doc.data() });
+      });
       renderResults(allResults);
     })
     .catch(error => console.error("Σφάλμα κατά τη φόρτωση αποτελεσμάτων:", error));
 }
 
-// --- Render results
+// --- Render results with score per employee ---
 function renderResults(resultsArray) {
   resultsBody.innerHTML = "";
-  summaryDiv.textContent = "";
-
-  let totalCorrect = 0;
-  let totalQuestions = 0;
 
   resultsArray.forEach(item => {
-    const { id: docId, data } = item;
+    const docId = item.id;
+    const data = item.data;
     const dateObj = data.timestamp ? data.timestamp.toDate() : null;
     const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,"0")}` : "";
 
     const row = document.createElement("tr");
 
-    let userCorrect = 0;
-    let userTotal = 0;
+    let correctCount = 0;
+    let totalCount = 0;
 
-    const answersHtml = questionsOrder
+    // Δημιουργία απαντήσεων με σωστή/λάθος χρωματική ένδειξη
+    const answersHTML = questionsOrder
       .filter(qId => data.answers[qId] !== undefined)
       .map(qId => {
-        const question = allQuestions[qId];
-        const questionText = question ? question.text : qId;
-        const correct = question?.correctAnswer;
-        let ans = data.answers[qId];
-        let displayAns = ans;
+        const q = allQuestions[qId];
+        const ans = data.answers[qId];
+        totalCount++;
 
-        if (question) {
-          if (question.type === "multiple" && Array.isArray(ans)) {
-            displayAns = ans.join(", ");
-          }
-          if (question.type === "scale-stars") {
-            const rating = Number(ans);
-            displayAns = (rating >= 1 && rating <= 5) ? "⭐".repeat(rating) : ans;
-          }
+        let correct = false;
+        if (q && q.correctAnswer !== null && q.type === "multiple") {
+          correct = (ans === q.correctAnswer);
         }
 
-        let isCorrect = false;
-        if (correct !== null && correct !== undefined) {
-          if (Array.isArray(correct)) {
-            isCorrect = Array.isArray(ans) && correct.sort().join(",") === ans.sort().join(",");
-          } else {
-            isCorrect = String(ans).trim().toLowerCase() === String(correct).trim().toLowerCase();
-          }
-        }
+        if (correct) correctCount++;
 
-        if (correct !== null) {
-          userTotal++;
-          if (isCorrect) userCorrect++;
-        }
+        const color = correct ? "green" : "red";
+        const answerText = (q.type === "scale-stars") 
+          ? "⭐".repeat(Number(ans)) 
+          : ans;
 
-        const color = correct === null ? "#333" : (isCorrect ? "green" : "red");
-        const correctText = correct !== null ? `<br><small>Σωστή απάντηση: ${correct}</small>` : "";
+        return `
+          <div style="margin-bottom:6px;">
+            <strong>${q.text}</strong><br>
+            <span style="color:${color}; font-weight:600;">Απάντηση: ${answerText}</span>
+          </div>`;
+      }).join("");
 
-        return `<div style="margin-bottom:10px;">
-                  <strong>${questionText}</strong><br>
-                  <span style="color:${color}">Απάντηση: ${displayAns}</span>
-                  ${correctText}
-                </div>`;
-      })
-      .join("");
-
-    totalCorrect += userCorrect;
-    totalQuestions += userTotal;
-
-    const userPercentage = userTotal ? ((userCorrect / userTotal) * 100).toFixed(1) : 0;
-    const resultText = userPercentage >= 80 ? "✅ Επιτυχία" : "❌ Αποτυχία";
-    const resultColor = userPercentage >= 80 ? "green" : "red";
+    const percentage = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+    const resultColor = percentage >= 80 ? "green" : "red";
+    const resultText = percentage >= 80 ? "✅ Επιτυχία" : "❌ Αποτυχία";
 
     row.innerHTML = `
-      <td>${data.email}</td>
-      <td class="answers-cell">${answersHtml}<br>
-        <strong style="color:${resultColor}">${userCorrect}/${userTotal} σωστά (${userPercentage}%) - ${resultText}</strong>
+      <td>
+        ${data.email}
+        <div style="margin-top:8px; font-size:14px; color:${resultColor}; font-weight:600;">
+          ${correctCount}/${totalCount} σωστές (${percentage}%) - ${resultText}
+        </div>
       </td>
+      <td class="answers-cell">${answersHTML}</td>
       <td>${date}</td>
       <td><button class="delete-btn">Διαγραφή</button></td>
     `;
@@ -151,17 +132,56 @@ function renderResults(resultsArray) {
 
     resultsBody.appendChild(row);
   });
-
-  // συνοπτικά πάνω από τον πίνακα
-  if (totalQuestions > 0) {
-    const overall = ((totalCorrect / totalQuestions) * 100).toFixed(1);
-    summaryDiv.innerHTML = `🔍 <b>Συνολικά:</b> ${totalCorrect}/${totalQuestions} σωστές απαντήσεις (${overall}%)`;
-  }
 }
 
-// --- Search filter
+// --- Search filter ---
 searchInput.addEventListener("input", () => {
   const query = searchInput.value.toLowerCase();
   const filtered = allResults.filter(item => item.data.email.toLowerCase().includes(query));
   renderResults(filtered);
+});
+
+// --- Export CSV ---
+exportBtn.addEventListener("click", () => {
+  if (!allResults.length) { alert("Δεν υπάρχουν αποτελέσματα για εξαγωγή."); return; }
+
+  const headers = ["Email Υπαλλήλου", "Απαντήσεις", "Ημερομηνία Υποβολής", "Σωστές/Σύνολο", "Ποσοστό"];
+  const rows = [headers.join(",")];
+
+  allResults.forEach(item => {
+    const data = item.data;
+    const dateObj = data.timestamp ? data.timestamp.toDate() : null;
+    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,"0")}` : "";
+
+    let correctCount = 0;
+    let totalCount = 0;
+
+    const answersText = questionsOrder
+      .filter(qId => data.answers[qId] !== undefined)
+      .map(qId => {
+        const q = allQuestions[qId];
+        const ans = data.answers[qId];
+        totalCount++;
+        let correct = false;
+        if (q && q.correctAnswer !== null && q.type === "multiple") {
+          correct = (ans === q.correctAnswer);
+        }
+        if (correct) correctCount++;
+        return `${q.text}: ${ans}`;
+      }).join(" | ");
+
+    const percent = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+    const row = [data.email, `"${answersText.replace(/"/g,'""')}"`, date, `${correctCount}/${totalCount}`, `${percent}%`].join(",");
+    rows.push(row);
+  });
+
+  const csvContent = "\uFEFF" + rows.join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `quiz_results_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 });
