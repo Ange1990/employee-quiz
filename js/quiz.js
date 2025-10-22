@@ -15,6 +15,7 @@ let questions = [];
 let currentIndex = 0;
 let answers = {};
 let timerInterval = null;
+let quizSubmitted = false; // ✅ Για να μην ξαναστείλει τα αποτελέσματα
 
 // --- Έλεγχος σύνδεσης χρήστη ---
 auth.onAuthStateChanged(async user => {
@@ -249,6 +250,31 @@ function submitQuiz() {
   const scorePercent = multipleCount > 0 ? Math.round((correctCount / multipleCount) * 100) : 0;
   const passed = scorePercent >= 80;
 
+  // ✅ Φτιάχνουμε την κάρτα αποτελεσμάτων
+  showResultsScreen(correctCount, multipleCount, scorePercent, passed);
+
+  // ✅ Σώζουμε στο Firestore ΜΟΝΟ την πρώτη φορά
+  if (!quizSubmitted) {
+    quizSubmitted = true; // σηματοδοτούμε ότι έχει σταλεί
+    const user = auth.currentUser;
+    if (user) {
+      db.collection("results").add({
+        uid: user.uid,
+        email: user.email,
+        answers,
+        correctCount,
+        totalMultiple: multipleCount,
+        scorePercent,
+        passed,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    localStorage.removeItem("quizStartTime");
+  }
+}
+
+// --- Προβολή συνολικών αποτελεσμάτων ---
+function showResultsScreen(correctCount, multipleCount, scorePercent, passed) {
   container.innerHTML = `
     <div class="result-card" style="
       text-align:center;
@@ -272,28 +298,7 @@ function submitQuiz() {
     </div>
   `;
 
-  // ✅ Σώζουμε τα αποτελέσματα
-  const user = auth.currentUser;
-  if (user) {
-    db.collection("results").add({
-      uid: user.uid,
-      email: user.email,
-      answers,
-      correctCount,
-      totalMultiple: multipleCount,
-      scorePercent,
-      passed,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
-  }
-
-  progressBar.style.width = "100%";
-  localStorage.removeItem("quizStartTime");
-
-  // ✅ Προβολή απαντήσεων (χωρίς νέο submit)
-  document.getElementById("view-answers").addEventListener("click", () => {
-    showDetailedResults();
-  });
+  document.getElementById("view-answers").addEventListener("click", showDetailedResults);
 }
 
 // --- Προβολή αναλυτικών απαντήσεων ---
@@ -333,7 +338,18 @@ function showDetailedResults() {
   backBtn.textContent = "⬅ Επιστροφή στα αποτελέσματα";
   backBtn.className = "nav-btn prev";
   backBtn.style.marginTop = "25px";
-  backBtn.onclick = () => submitQuiz(); // επιστροφή στα συνολικά αποτελέσματα
+  backBtn.onclick = () => showResultsScreen(
+    questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length,
+    questions.filter(q => q.type === "multiple").length,
+    Math.round(
+      (questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length /
+        questions.filter(q => q.type === "multiple").length) * 100
+    ),
+    Math.round(
+      (questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length /
+        questions.filter(q => q.type === "multiple").length) * 100
+    ) >= 80
+  );
   container.appendChild(backBtn);
 }
 
