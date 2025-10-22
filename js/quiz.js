@@ -228,7 +228,7 @@ function updateProgress() {
   progressBar.style.width = `${percent}%`;
 }
 
-// --- Υποβολή Quiz + Υπολογισμός ποσοστού ---
+// --- Υποβολή Quiz + Αναλυτικά Αποτελέσματα ---
 function submitQuiz() {
   saveAnswerAndMove(0);
   lockQuiz();
@@ -237,6 +237,7 @@ function submitQuiz() {
   let correctCount = 0;
   let multipleCount = 0;
 
+  // Υπολογισμός αποτελεσμάτων
   questions.forEach(q => {
     if (q.type === "multiple") {
       multipleCount++;
@@ -249,6 +250,7 @@ function submitQuiz() {
   const scorePercent = multipleCount > 0 ? Math.round((correctCount / multipleCount) * 100) : 0;
   const passed = scorePercent >= 80;
 
+  // --- Εμφάνιση συνολικών αποτελεσμάτων ---
   container.innerHTML = `
     <div class="result-card" style="
       text-align:center;
@@ -268,9 +270,77 @@ function submitQuiz() {
       ">
         ${passed ? '✅ Επιτυχία' : '❌ Αποτυχία'}
       </h2>
+      <button id="toggle-results" style="
+        margin-top:30px;
+        padding:10px 20px;
+        border:none;
+        border-radius:10px;
+        background:linear-gradient(135deg,#00c6ff,#0072ff);
+        color:#fff;
+        font-size:16px;
+        cursor:pointer;
+        transition:0.3s;
+      ">📄 Προβολή Αναλυτικών Αποτελεσμάτων</button>
     </div>
+    <div id="detailed-results" style="margin-top:40px; display:none;"></div>
   `;
 
+  // --- Αναλυτικά αποτελέσματα ---
+  const detailsDiv = document.getElementById("detailed-results");
+  detailsDiv.innerHTML = "<h3 style='text-align:center;margin-bottom:20px;'>Αναλυτικά Αποτελέσματα</h3>";
+
+  questions.forEach(q => {
+    const userAnswer = answers[q.id] ?? "—";
+    const correctAnswer = q.correctAnswer ?? null;
+
+    let isCorrect = false;
+    if (q.type === "multiple" && correctAnswer) {
+      isCorrect = userAnswer === correctAnswer;
+    }
+
+    const qDiv = document.createElement("div");
+    qDiv.className = "question-review";
+    qDiv.style = `
+      background: rgba(255,255,255,0.12);
+      padding: 18px 22px;
+      border-radius: 14px;
+      margin-bottom: 15px;
+      border-left: 6px solid ${isCorrect ? 'lightgreen' : q.type === 'multiple' ? 'red' : '#0072ff'};
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    `;
+
+    if (q.type === "multiple") {
+      qDiv.innerHTML = `
+        <p style="font-size:18px;font-weight:600;margin-bottom:8px;">${q.text}</p>
+        <p><strong>Η απάντησή σου:</strong> <span style="color:${isCorrect ? 'lightgreen' : 'red'}">${userAnswer}</span></p>
+        <p><strong>Σωστή απάντηση:</strong> <span style="color:gold">${correctAnswer}</span></p>
+      `;
+    } else if (q.type === "open") {
+      qDiv.innerHTML = `
+        <p style="font-size:18px;font-weight:600;margin-bottom:8px;">${q.text}</p>
+        <p><strong>Η απάντησή σου:</strong></p>
+        <div style="background:rgba(255,255,255,0.1);padding:10px;border-radius:10px;color:#fff;margin-top:5px;">${userAnswer || "(καμία απάντηση)"}</div>
+      `;
+    } else if (q.type === "scale-stars") {
+      const stars = '★'.repeat(userAnswer) + '☆'.repeat(5 - userAnswer);
+      qDiv.innerHTML = `
+        <p style="font-size:18px;font-weight:600;margin-bottom:8px;">${q.text}</p>
+        <p><strong>Η αξιολόγησή σου:</strong> <span style="font-size:24px;color:gold">${stars}</span></p>
+      `;
+    }
+
+    detailsDiv.appendChild(qDiv);
+  });
+
+  // --- Toggle εμφάνισης ---
+  const toggleBtn = document.getElementById("toggle-results");
+  toggleBtn.addEventListener("click", () => {
+    const visible = detailsDiv.style.display === "block";
+    detailsDiv.style.display = visible ? "none" : "block";
+    toggleBtn.textContent = visible ? "📄 Προβολή Αναλυτικών Αποτελεσμάτων" : "📄 Απόκρυψη Αναλυτικών Αποτελεσμάτων";
+  });
+
+  // --- Αποθήκευση αποτελεσμάτων στη Firestore ---
   const user = auth.currentUser;
   if (user) {
     db.collection("results").add({
