@@ -5,7 +5,7 @@ const userEmailSpan = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
 const progressBar = document.getElementById("progress");
 
-const TIMER_TOTAL = 15 * 60; // ⏱️ 15 λεπτά
+const TIMER_TOTAL = 15 * 60;
 const timerDisplay = document.createElement("div");
 timerDisplay.style.marginBottom = "15px";
 timerDisplay.style.fontWeight = "600";
@@ -28,7 +28,6 @@ auth.onAuthStateChanged(async user => {
   container.innerHTML = "<h3 style='text-align:center;'>Φόρτωση δεδομένων...</h3>";
 
   try {
-    // 🔍 Έλεγχος αν έχει ήδη κάνει quiz
     const resultSnap = await db.collection("results")
       .where("uid", "==", user.uid)
       .limit(1)
@@ -37,22 +36,21 @@ auth.onAuthStateChanged(async user => {
     if (!resultSnap.empty) {
       const data = resultSnap.docs[0].data();
 
-      // Αν έχει υπολογισμένο score, σημαίνει πως έχει τελειώσει το quiz
       if (data.scorePercent !== undefined && data.scorePercent !== null) {
         quizSubmitted = true;
         answers = data.answers || {};
+        await loadQuestions(true); // μόνο για αναλυτικά αποτελέσματα
         showResultsScreen(
           data.correctCount,
           data.totalMultiple,
           data.scorePercent,
           data.passed
         );
-        return; // Δεν φορτώνουμε ξανά τις ερωτήσεις
+        return;
       }
     }
 
-    // Αν δεν έχει κάνει quiz, κανονικά ξεκινά
-    await loadQuestions();
+    await loadQuestions(false);
     startTimer();
 
   } catch (err) {
@@ -64,13 +62,12 @@ auth.onAuthStateChanged(async user => {
 // --- Logout ---
 logoutBtn.addEventListener("click", () => {
   auth.signOut().then(() => {
-    // Δεν καθαρίζουμε το quizStartTime για να συνεχίσει αν ξαναμπεί
     window.location.href = "index.html";
   });
 });
 
 // --- Φόρτωση ερωτήσεων ---
-async function loadQuestions() {
+async function loadQuestions(hideQuestions = false) {
   const user = auth.currentUser;
   if (!user) return;
 
@@ -90,10 +87,12 @@ async function loadQuestions() {
       }
     });
 
-    if (questions.length === 0) {
-      container.innerHTML = "<h2>Δεν υπάρχουν διαθέσιμες ερωτήσεις για την ομάδα σας.</h2>";
-    } else {
-      showQuestion(0);
+    if (!hideQuestions) {
+      if (questions.length === 0) {
+        container.innerHTML = "<h2>Δεν υπάρχουν διαθέσιμες ερωτήσεις για την ομάδα σας.</h2>";
+      } else {
+        showQuestion(0);
+      }
     }
 
   } catch (err) {
@@ -128,12 +127,12 @@ function startTimer() {
   }, 1000);
 }
 
-// --- Κλείδωμα Quiz ---
+// --- Lock Quiz ---
 function lockQuiz() {
   form.querySelectorAll("textarea, .stars span, input[type=radio], button").forEach(el => el.disabled = true);
 }
 
-// --- Εμφάνιση ερώτησης ---
+// --- Show Question ---
 function showQuestion(index) {
   currentIndex = index;
   const q = questions[index];
@@ -207,7 +206,7 @@ function showQuestion(index) {
   updateSubmitButton();
 }
 
-// --- Navigation buttons ---
+// --- Navigation ---
 function renderNavigation() {
   const nav = document.createElement("div");
   nav.style.display = "flex";
@@ -235,31 +234,29 @@ function renderNavigation() {
   container.appendChild(nav);
 }
 
-// --- Submit button εμφάνιση ---
+// --- Submit Button ---
 function updateSubmitButton() {
   const submitBtn = form.querySelector('button[type="submit"]');
   submitBtn.style.display = (currentIndex === questions.length - 1) ? "block" : "none";
 }
 
-// --- Save απάντησης ---
+// --- Save Answer & Move ---
 function saveAnswerAndMove(step) {
   const q = questions[currentIndex];
-
   if (q.type === "open") {
     const textarea = form.querySelector(`textarea[name="${q.id}"]`);
     if (textarea) answers[q.id] = textarea.value.trim();
   }
-
   if (step !== 0) showQuestion(currentIndex + step);
 }
 
-// --- Progress bar ---
+// --- Progress ---
 function updateProgress() {
   const percent = ((currentIndex + 1) / questions.length) * 100;
   progressBar.style.width = `${percent}%`;
 }
 
-// --- Υποβολή Quiz ---
+// --- Submit Quiz ---
 function submitQuiz() {
   saveAnswerAndMove(0);
   lockQuiz();
@@ -344,8 +341,7 @@ function showDetailedResults() {
       card.innerHTML += `<p><strong>Η βαθμολογία σου:</strong> ${userAnswer ? userAnswer + " ⭐" : "<em>Δεν βαθμολόγησες</em>"}</p>`;
     } else if (q.type === "multiple") {
       card.innerHTML += `
-        <p><strong>Η απάντησή σου:</strong> ${userAnswer || "<em>Δεν απάντησες</em>"} ${userAnswer ? (isCorrect ? "✅" : "❌") : ""}
-        </p>
+        <p><strong>Η απάντησή σου:</strong> ${userAnswer || "<em>Δεν απάντησες</em>"} ${userAnswer ? (isCorrect ? "✅" : "❌") : ""}</p>
         ${correct ? `<p><strong>Σωστή απάντηση:</strong> ${correct}</p>` : ""}
       `;
     }
