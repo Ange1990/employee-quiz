@@ -5,7 +5,7 @@ const userEmailSpan = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
 const progressBar = document.getElementById("progress");
 
-const TIMER_TOTAL = 15 * 60; // ⏱️ 15 λεπτά
+const TIMER_TOTAL = 15 * 60; // 15 λεπτά
 const timerDisplay = document.createElement("div");
 timerDisplay.style.marginBottom = "15px";
 timerDisplay.style.fontWeight = "600";
@@ -17,6 +17,13 @@ let answers = {};
 let timerInterval = null;
 let quizSubmitted = false;
 
+// --- Εμφάνιση προσωρινού loader ---
+container.innerHTML = `
+  <div style="text-align:center; font-size:22px; color:#fff; padding:40px;">
+    ⏳ Φόρτωση δεδομένων, παρακαλώ περιμένετε...
+  </div>
+`;
+
 // --- Έλεγχος σύνδεσης χρήστη ---
 auth.onAuthStateChanged(async user => {
   if (!user) {
@@ -26,37 +33,51 @@ auth.onAuthStateChanged(async user => {
 
   userEmailSpan.textContent = `Καλώς ήρθες, ${user.email}`;
 
-  // ➕ ΕΛΕΓΧΟΣ ΑΝ ΕΧΕΙ ΗΔΗ ΥΠΟΒΑΛΕΙ
-  const existingResult = await db.collection("results")
-    .where("uid", "==", user.uid)
-    .orderBy("timestamp", "desc")
-    .limit(1)
-    .get();
+  try {
+    // 🔍 Έλεγχος αν υπάρχει ήδη ολοκληρωμένο αποτέλεσμα
+    const existingResultSnap = await db.collection("results")
+      .where("uid", "==", user.uid)
+      .orderBy("timestamp", "desc")
+      .limit(1)
+      .get();
 
-  if (!existingResult.empty) {
-    // ✅ Έχει ήδη κάνει το quiz
-    const data = existingResult.docs[0].data();
-    quizSubmitted = true;
-    answers = data.answers || {};
+    let hasCompletedQuiz = false;
+    let latestResultData = null;
 
-    showResultsScreen(
-      data.correctCount,
-      data.totalMultiple,
-      data.scorePercent,
-      data.passed
-    );
-    return; // ❌ Δεν φορτώνουμε ερωτήσεις ξανά
+    if (!existingResultSnap.empty) {
+      const doc = existingResultSnap.docs[0];
+      const data = doc.data();
+      if (data.scorePercent !== undefined && data.scorePercent !== null) {
+        hasCompletedQuiz = true;
+        latestResultData = data;
+      }
+    }
+
+    if (hasCompletedQuiz) {
+      // ✅ Έχει ήδη υποβάλει
+      quizSubmitted = true;
+      answers = latestResultData.answers || {};
+      showResultsScreen(
+        latestResultData.correctCount,
+        latestResultData.totalMultiple,
+        latestResultData.scorePercent,
+        latestResultData.passed
+      );
+    } else {
+      // ✅ Δεν έχει υποβάλει ακόμα — ξεκινά το quiz
+      await loadQuestions();
+      startTimer();
+    }
+  } catch (err) {
+    console.error("Σφάλμα κατά τον έλεγχο αποτελεσμάτων:", err);
+    container.innerHTML = "<p>⚠️ Σφάλμα φόρτωσης δεδομένων. Δοκιμάστε ξανά.</p>";
   }
-
-  // Αν δεν έχει κάνει, ξεκινά το quiz
-  await loadQuestions();
-  startTimer();
 });
 
 // --- Logout ---
 logoutBtn.addEventListener("click", () => {
   auth.signOut().then(() => {
-    // ❌ ΔΕΝ διαγράφουμε quizStartTime ώστε να συνεχίζει
+    localStorage.removeItem("quizStartTime");
     window.location.href = "index.html";
   });
 });
@@ -90,7 +111,7 @@ async function loadQuestions() {
 
   } catch (err) {
     console.error("Σφάλμα φόρτωσης ερωτήσεων:", err);
-    alert("Σφάλμα φόρτωσης ερωτήσεων.");
+    container.innerHTML = "<h2>⚠️ Σφάλμα φόρτωσης ερωτήσεων.</h2>";
   }
 }
 
@@ -100,9 +121,7 @@ function startTimer() {
   if (!startTime) {
     startTime = Date.now();
     localStorage.setItem("quizStartTime", startTime);
-  } else {
-    startTime = parseInt(startTime);
-  }
+  } else startTime = parseInt(startTime);
 
   timerInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -124,7 +143,7 @@ function startTimer() {
 
 // --- Κλείδωμα Quiz ---
 function lockQuiz() {
-  form.querySelectorAll("textarea, .stars span, input[type=radio], button").forEach(el => {
+  form.querySelectorAll("textarea, .stars span, input[type=radio], button.nav-btn").forEach(el => {
     el.disabled = true;
   });
 }
@@ -151,7 +170,8 @@ function showQuestion(index) {
     textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
     textarea.value = answers[q.id] || "";
     card.appendChild(textarea);
-  } else if (q.type === "scale-stars") {
+  } 
+  else if (q.type === "scale-stars") {
     const starsWrapper = document.createElement("div");
     starsWrapper.className = "stars-wrapper";
     const numStars = 5;
@@ -173,7 +193,8 @@ function showQuestion(index) {
 
     starsWrapper.appendChild(starsDiv);
     card.appendChild(starsWrapper);
-  } else if (q.type === "multiple") {
+  } 
+  else if (q.type === "multiple") {
     const optionsDiv = document.createElement("div");
     optionsDiv.className = "options";
 
@@ -231,7 +252,7 @@ function renderNavigation() {
   container.appendChild(nav);
 }
 
-// --- Submit button εμφάνιση ---
+// --- Submit button ---
 function updateSubmitButton() {
   const submitBtn = form.querySelector('button[type="submit"]');
   submitBtn.style.display = (currentIndex === questions.length - 1) ? "block" : "none";
@@ -255,7 +276,7 @@ function updateProgress() {
   progressBar.style.width = `${percent}%`;
 }
 
-// --- Υποβολή Quiz + Υπολογισμός ποσοστού ---
+// --- Υποβολή Quiz ---
 function submitQuiz() {
   saveAnswerAndMove(0);
   lockQuiz();
@@ -276,10 +297,8 @@ function submitQuiz() {
   const scorePercent = multipleCount > 0 ? Math.round((correctCount / multipleCount) * 100) : 0;
   const passed = scorePercent >= 80;
 
-  // ✅ Φτιάχνουμε την κάρτα αποτελεσμάτων
   showResultsScreen(correctCount, multipleCount, scorePercent, passed);
 
-  // ✅ Σώζουμε στο Firestore ΜΟΝΟ την πρώτη φορά
   if (!quizSubmitted) {
     quizSubmitted = true;
     const user = auth.currentUser;
@@ -299,7 +318,7 @@ function submitQuiz() {
   }
 }
 
-// --- Προβολή συνολικών αποτελεσμάτων ---
+// --- Εμφάνιση αποτελεσμάτων ---
 function showResultsScreen(correctCount, multipleCount, scorePercent, passed) {
   container.innerHTML = `
     <div class="result-card" style="
@@ -313,7 +332,7 @@ function showResultsScreen(correctCount, multipleCount, scorePercent, passed) {
       <h2>Αποτελέσματα Ερωτηματολογίου</h2>
       <p style="font-size:22px;margin-top:20px;">Σωστές απαντήσεις: ${correctCount} / ${multipleCount}</p>
       <h3 style="font-size:28px;margin-top:10px;">Ποσοστό: <strong>${scorePercent}%</strong></h3>
-      <h2 style="color:${passed ? 'lightgreen' : 'red'};font-size:32px;margin-top:20px;">
+      <h2 style="color:${passed ? 'lightgreen' : 'red'}; font-size:32px; margin-top:20px;">
         ${passed ? '✅ Επιτυχία' : '❌ Αποτυχία'}
       </h2>
       <button id="view-answers" type="button" class="nav-btn submit" style="margin-top:25px;">📄 Προβολή Αναλυτικών Αποτελεσμάτων</button>
