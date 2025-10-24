@@ -15,7 +15,7 @@ let questions = [];
 let currentIndex = 0;
 let answers = {};
 let timerInterval = null;
-let quizSubmitted = false; // ✅ Για να μην ξαναστείλει τα αποτελέσματα
+let quizSubmitted = false;
 
 // --- Έλεγχος σύνδεσης χρήστη ---
 auth.onAuthStateChanged(async user => {
@@ -25,6 +25,30 @@ auth.onAuthStateChanged(async user => {
   }
 
   userEmailSpan.textContent = `Καλώς ήρθες, ${user.email}`;
+
+  // ➕ ΕΛΕΓΧΟΣ ΑΝ ΕΧΕΙ ΗΔΗ ΥΠΟΒΑΛΕΙ
+  const existingResult = await db.collection("results")
+    .where("uid", "==", user.uid)
+    .orderBy("timestamp", "desc")
+    .limit(1)
+    .get();
+
+  if (!existingResult.empty) {
+    // ✅ Έχει ήδη κάνει το quiz
+    const data = existingResult.docs[0].data();
+    quizSubmitted = true;
+    answers = data.answers || {};
+
+    showResultsScreen(
+      data.correctCount,
+      data.totalMultiple,
+      data.scorePercent,
+      data.passed
+    );
+    return; // ❌ Δεν φορτώνουμε ερωτήσεις ξανά
+  }
+
+  // Αν δεν έχει κάνει, ξεκινά το quiz
   await loadQuestions();
   startTimer();
 });
@@ -32,7 +56,7 @@ auth.onAuthStateChanged(async user => {
 // --- Logout ---
 logoutBtn.addEventListener("click", () => {
   auth.signOut().then(() => {
-    localStorage.removeItem("quizStartTime");
+    // ❌ ΔΕΝ διαγράφουμε quizStartTime ώστε να συνεχίζει
     window.location.href = "index.html";
   });
 });
@@ -76,7 +100,9 @@ function startTimer() {
   if (!startTime) {
     startTime = Date.now();
     localStorage.setItem("quizStartTime", startTime);
-  } else startTime = parseInt(startTime);
+  } else {
+    startTime = parseInt(startTime);
+  }
 
   timerInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -98,7 +124,9 @@ function startTimer() {
 
 // --- Κλείδωμα Quiz ---
 function lockQuiz() {
-  form.querySelectorAll("textarea, .stars span, input[type=radio], button").forEach(el => el.disabled = true);
+  form.querySelectorAll("textarea, .stars span, input[type=radio], button").forEach(el => {
+    el.disabled = true;
+  });
 }
 
 // --- Εμφάνιση ερώτησης ---
@@ -123,8 +151,7 @@ function showQuestion(index) {
     textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
     textarea.value = answers[q.id] || "";
     card.appendChild(textarea);
-  } 
-  else if (q.type === "scale-stars") {
+  } else if (q.type === "scale-stars") {
     const starsWrapper = document.createElement("div");
     starsWrapper.className = "stars-wrapper";
     const numStars = 5;
@@ -146,8 +173,7 @@ function showQuestion(index) {
 
     starsWrapper.appendChild(starsDiv);
     card.appendChild(starsWrapper);
-  } 
-  else if (q.type === "multiple") {
+  } else if (q.type === "multiple") {
     const optionsDiv = document.createElement("div");
     optionsDiv.className = "options";
 
@@ -255,7 +281,7 @@ function submitQuiz() {
 
   // ✅ Σώζουμε στο Firestore ΜΟΝΟ την πρώτη φορά
   if (!quizSubmitted) {
-    quizSubmitted = true; // σηματοδοτούμε ότι έχει σταλεί
+    quizSubmitted = true;
     const user = auth.currentUser;
     if (user) {
       db.collection("results").add({
@@ -287,11 +313,7 @@ function showResultsScreen(correctCount, multipleCount, scorePercent, passed) {
       <h2>Αποτελέσματα Ερωτηματολογίου</h2>
       <p style="font-size:22px;margin-top:20px;">Σωστές απαντήσεις: ${correctCount} / ${multipleCount}</p>
       <h3 style="font-size:28px;margin-top:10px;">Ποσοστό: <strong>${scorePercent}%</strong></h3>
-      <h2 style="
-        color:${passed ? 'lightgreen' : 'red'};
-        font-size:32px;
-        margin-top:20px;
-      ">
+      <h2 style="color:${passed ? 'lightgreen' : 'red'};font-size:32px;margin-top:20px;">
         ${passed ? '✅ Επιτυχία' : '❌ Αποτυχία'}
       </h2>
       <button id="view-answers" type="button" class="nav-btn submit" style="margin-top:25px;">📄 Προβολή Αναλυτικών Αποτελεσμάτων</button>
@@ -324,8 +346,7 @@ function showDetailedResults() {
       card.innerHTML += `<p><strong>Η βαθμολογία σου:</strong> ${userAnswer ? userAnswer + " ⭐" : "<em>Δεν βαθμολόγησες</em>"}</p>`;
     } else if (q.type === "multiple") {
       card.innerHTML += `
-        <p><strong>Η απάντησή σου:</strong> ${userAnswer || "<em>Δεν απάντησες</em>"} ${userAnswer ? (isCorrect ? "✅" : "❌") : ""}
-        </p>
+        <p><strong>Η απάντησή σου:</strong> ${userAnswer || "<em>Δεν απάντησες</em>"} ${userAnswer ? (isCorrect ? "✅" : "❌") : ""}</p>
         ${correct ? `<p><strong>Σωστή απάντηση:</strong> ${correct}</p>` : ""}
       `;
     }
