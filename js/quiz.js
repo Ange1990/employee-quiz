@@ -25,46 +25,63 @@ auth.onAuthStateChanged(async user => {
   }
 
   userEmailSpan.textContent = `Καλώς ήρθες, ${user.email}`;
-  container.innerHTML = "<h3 style='text-align:center;'>Φόρτωση δεδομένων...</h3>";
+
+  // 🔹 Μήνυμα φόρτωσης
+  container.innerHTML = `
+    <div style="text-align:center; padding:50px;">
+      <div class="loader"></div>
+      <p style="margin-top:15px;">Φόρτωση δεδομένων...</p>
+    </div>
+  `;
 
   try {
-    // 🔍 Έλεγχος αν έχει ήδη κάνει quiz
-    const resultSnap = await db.collection("results")
+    const resultsSnap = await db.collection("results")
       .where("uid", "==", user.uid)
+      .orderBy("timestamp", "desc")
       .limit(1)
       .get();
 
-    if (!resultSnap.empty) {
-      const data = resultSnap.docs[0].data();
+    let hasCompleted = false;
+    let resultData = null;
 
-      // Αν έχει υπολογισμένο score, σημαίνει πως έχει τελειώσει το quiz
+    if (!resultsSnap.empty) {
+      const doc = resultsSnap.docs[0];
+      const data = doc.data();
       if (data.scorePercent !== undefined && data.scorePercent !== null) {
-        quizSubmitted = true;
-        answers = data.answers || {};
-        showResultsScreen(
-          data.correctCount,
-          data.totalMultiple,
-          data.scorePercent,
-          data.passed
-        );
-        return; // Δεν φορτώνουμε ξανά τις ερωτήσεις
+        hasCompleted = true;
+        resultData = data;
       }
     }
 
-    // Αν δεν έχει κάνει quiz, κανονικά ξεκινά
+    // 🔹 Φόρτωσε τις ερωτήσεις ΠΑΝΤΑ (για να λειτουργούν τα αναλυτικά)
     await loadQuestions();
-    startTimer();
+
+    if (hasCompleted) {
+      quizSubmitted = true;
+      answers = resultData.answers || {};
+
+      showResultsScreen(
+        resultData.correctCount,
+        resultData.totalMultiple,
+        resultData.scorePercent,
+        resultData.passed
+      );
+    } else {
+      startTimer();
+    }
 
   } catch (err) {
-    console.error("Σφάλμα φόρτωσης δεδομένων:", err);
-    container.innerHTML = "<p style='text-align:center;color:red;'>⚠️ Σφάλμα φόρτωσης δεδομένων. Δοκιμάστε ξανά.</p>";
+    console.error("Σφάλμα κατά τον έλεγχο αποτελεσμάτων:", err);
+    container.innerHTML = `<p style="color:red; text-align:center;">⚠️ Σφάλμα φόρτωσης δεδομένων. Δοκιμάστε ξανά.</p>`;
+    await loadQuestions();
+    startTimer();
   }
 });
 
 // --- Logout ---
 logoutBtn.addEventListener("click", () => {
   auth.signOut().then(() => {
-    // Δεν καθαρίζουμε το quizStartTime για να συνεχίσει αν ξαναμπεί
+    localStorage.removeItem("quizStartTime");
     window.location.href = "index.html";
   });
 });
@@ -98,7 +115,7 @@ async function loadQuestions() {
 
   } catch (err) {
     console.error("Σφάλμα φόρτωσης ερωτήσεων:", err);
-    container.innerHTML = "<p style='text-align:center;color:red;'>⚠️ Σφάλμα φόρτωσης ερωτήσεων.</p>";
+    alert("Σφάλμα φόρτωσης ερωτήσεων.");
   }
 }
 
@@ -155,7 +172,8 @@ function showQuestion(index) {
     textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
     textarea.value = answers[q.id] || "";
     card.appendChild(textarea);
-  } else if (q.type === "scale-stars") {
+  } 
+  else if (q.type === "scale-stars") {
     const starsWrapper = document.createElement("div");
     starsWrapper.className = "stars-wrapper";
     const numStars = 5;
@@ -177,7 +195,8 @@ function showQuestion(index) {
 
     starsWrapper.appendChild(starsDiv);
     card.appendChild(starsWrapper);
-  } else if (q.type === "multiple") {
+  } 
+  else if (q.type === "multiple") {
     const optionsDiv = document.createElement("div");
     optionsDiv.className = "options";
 
@@ -259,7 +278,7 @@ function updateProgress() {
   progressBar.style.width = `${percent}%`;
 }
 
-// --- Υποβολή Quiz ---
+// --- Υποβολή Quiz + Υπολογισμός ποσοστού ---
 function submitQuiz() {
   saveAnswerAndMove(0);
   lockQuiz();
@@ -301,24 +320,34 @@ function submitQuiz() {
   }
 }
 
-// --- Εμφάνιση συνολικών αποτελεσμάτων ---
+// --- Προβολή συνολικών αποτελεσμάτων ---
 function showResultsScreen(correctCount, multipleCount, scorePercent, passed) {
   container.innerHTML = `
-    <div class="result-card" style="text-align:center;background:rgba(255,255,255,0.15);
-    padding:40px;border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,0.3);animation:fadeIn 0.8s ease;">
+    <div class="result-card" style="
+      text-align:center;
+      background: rgba(255,255,255,0.15);
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      animation: fadeIn 0.8s ease;
+    ">
       <h2>Αποτελέσματα Ερωτηματολογίου</h2>
       <p style="font-size:22px;margin-top:20px;">Σωστές απαντήσεις: ${correctCount} / ${multipleCount}</p>
       <h3 style="font-size:28px;margin-top:10px;">Ποσοστό: <strong>${scorePercent}%</strong></h3>
-      <h2 style="color:${passed ? 'lightgreen' : 'red'};font-size:32px;margin-top:20px;">
+      <h2 style="
+        color:${passed ? 'lightgreen' : 'red'};
+        font-size:32px;
+        margin-top:20px;
+      ">
         ${passed ? '✅ Επιτυχία' : '❌ Αποτυχία'}
       </h2>
-      <button id="view-answers" type="button" class="nav-btn submit" style="margin-top:25px;">
-        📄 Προβολή Αναλυτικών Αποτελεσμάτων
-      </button>
+      <button id="view-answers" type="button" class="nav-btn submit" style="margin-top:25px;">📄 Προβολή Αναλυτικών Αποτελεσμάτων</button>
+      <button id="restart-quiz" type="button" class="nav-btn prev" style="margin-top:20px;">🔁 Επανεκκίνηση Quiz</button>
     </div>
   `;
 
   document.getElementById("view-answers").addEventListener("click", showDetailedResults);
+  document.getElementById("restart-quiz").addEventListener("click", restartQuiz);
 }
 
 // --- Προβολή αναλυτικών απαντήσεων ---
@@ -362,15 +391,23 @@ function showDetailedResults() {
     questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length,
     questions.filter(q => q.type === "multiple").length,
     Math.round(
-      (questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length /
-        questions.filter(q => q.type === "multiple").length) * 100
+      (questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length / questions.filter(q => q.type === "multiple").length) * 100
     ),
     Math.round(
-      (questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length /
-        questions.filter(q => q.type === "multiple").length) * 100
+      (questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length / questions.filter(q => q.type === "multiple").length) * 100
     ) >= 80
   );
   container.appendChild(backBtn);
+}
+
+// --- Επανεκκίνηση Quiz ---
+function restartQuiz() {
+  if (!confirm("Θέλεις να ξεκινήσεις το quiz από την αρχή;")) return;
+  localStorage.removeItem("quizStartTime");
+  quizSubmitted = false;
+  answers = {};
+  showQuestion(0);
+  startTimer();
 }
 
 // --- Submit event ---
