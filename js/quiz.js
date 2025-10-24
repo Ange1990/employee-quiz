@@ -282,7 +282,7 @@ function submitQuiz() {
   });
 
   const scorePercent = multipleCount > 0 ? Math.round((correctCount / multipleCount) * 100) : 0;
-  const passed = scorePercent >= 80;
+  const passed = scorePercent >= 85;
 
   showResultsScreen(correctCount, multipleCount, scorePercent, passed);
 
@@ -384,3 +384,4 @@ form.addEventListener("submit", e => {
   if (!confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;")) return;
   submitQuiz();
 });
+
