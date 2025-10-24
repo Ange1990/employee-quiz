@@ -5,7 +5,7 @@ const userEmailSpan = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
 const progressBar = document.getElementById("progress");
 
-const TIMER_TOTAL = 15 * 60; // 15 λεπτά
+const TIMER_TOTAL = 15 * 60; // ⏱️ 15 λεπτά
 const timerDisplay = document.createElement("div");
 timerDisplay.style.marginBottom = "15px";
 timerDisplay.style.fontWeight = "600";
@@ -16,7 +16,6 @@ let currentIndex = 0;
 let answers = {};
 let timerInterval = null;
 let quizSubmitted = false;
-let currentStartTime = null;
 
 // --- Έλεγχος σύνδεσης χρήστη ---
 auth.onAuthStateChanged(async user => {
@@ -29,7 +28,7 @@ auth.onAuthStateChanged(async user => {
   container.innerHTML = "<h3 style='text-align:center;'>Φόρτωση δεδομένων...</h3>";
 
   try {
-    // 🔍 Έλεγχος αν έχει ήδη κάνει quiz
+    // Έλεγχος αν έχει ήδη ολοκληρώσει το quiz
     const resultSnap = await db.collection("results")
       .where("uid", "==", user.uid)
       .orderBy("timestamp", "desc")
@@ -38,8 +37,9 @@ auth.onAuthStateChanged(async user => {
 
     if (!resultSnap.empty) {
       const data = resultSnap.docs[0].data();
+
       if (data.scorePercent !== undefined && data.scorePercent !== null) {
-        // Ο χρήστης έχει ήδη ολοκληρώσει το quiz
+        // Quiz ολοκληρωμένο: δεν φορτώνουμε ερωτήσεις, δείχνουμε μόνο αποτελέσματα
         quizSubmitted = true;
         answers = data.answers || {};
         showResultsScreen(
@@ -49,10 +49,18 @@ auth.onAuthStateChanged(async user => {
           data.passed
         );
         return;
+      } else if (data.answers) {
+        // Quiz ημιτελές: επαναφορά απαντήσεων και τρέχουσας ερώτησης
+        answers = data.answers;
+        currentIndex = data.currentIndex || 0;
+        await loadQuestions();
+        showQuestion(currentIndex);
+        startTimer();
+        return;
       }
     }
 
-    // Αν δεν έχει ολοκληρώσει, φορτώνουμε ερωτήσεις
+    // Quiz δεν έχει ξεκινήσει
     await loadQuestions();
     startTimer();
 
@@ -92,11 +100,7 @@ async function loadQuestions() {
 
     if (questions.length === 0) {
       container.innerHTML = "<h2>Δεν υπάρχουν διαθέσιμες ερωτήσεις για την ομάδα σας.</h2>";
-    } else {
-      // Αν υπάρχει αποθηκευμένη πρόοδος, συνεχίζουμε από εκεί
-      const savedAnswers = JSON.parse(localStorage.getItem("quizAnswers") || "{}");
-      answers = { ...answers, ...savedAnswers };
-      currentIndex = parseInt(localStorage.getItem("quizCurrentIndex") || 0);
+    } else if (!quizSubmitted) {
       showQuestion(currentIndex);
     }
 
@@ -112,10 +116,7 @@ function startTimer() {
   if (!startTime) {
     startTime = Date.now();
     localStorage.setItem("quizStartTime", startTime);
-  } else {
-    startTime = parseInt(startTime);
-  }
-  currentStartTime = startTime;
+  } else startTime = parseInt(startTime);
 
   timerInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -137,7 +138,7 @@ function startTimer() {
 
 // --- Κλείδωμα Quiz ---
 function lockQuiz() {
-  form.querySelectorAll("textarea, .stars span, input[type=radio], button[type=submit]").forEach(el => el.disabled = true);
+  form.querySelectorAll("textarea, .stars span, input[type=radio], button").forEach(el => el.disabled = true);
 }
 
 // --- Εμφάνιση ερώτησης ---
@@ -161,10 +162,6 @@ function showQuestion(index) {
     textarea.rows = 4;
     textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
     textarea.value = answers[q.id] || "";
-    textarea.addEventListener("input", () => {
-      answers[q.id] = textarea.value.trim();
-      localStorage.setItem("quizAnswers", JSON.stringify(answers));
-    });
     card.appendChild(textarea);
   } else if (q.type === "scale-stars") {
     const starsWrapper = document.createElement("div");
@@ -181,7 +178,6 @@ function showQuestion(index) {
       star.className = i <= selected ? "selected" : "";
       star.addEventListener("click", () => {
         answers[q.id] = i;
-        localStorage.setItem("quizAnswers", JSON.stringify(answers));
         showQuestion(currentIndex);
       });
       starsDiv.appendChild(star);
@@ -203,7 +199,6 @@ function showQuestion(index) {
 
       input.addEventListener("change", () => {
         answers[q.id] = opt;
-        localStorage.setItem("quizAnswers", JSON.stringify(answers));
       });
 
       label.appendChild(input);
@@ -218,7 +213,6 @@ function showQuestion(index) {
   renderNavigation();
   updateProgress();
   updateSubmitButton();
-  localStorage.setItem("quizCurrentIndex", currentIndex);
 }
 
 // --- Navigation buttons ---
@@ -252,10 +246,11 @@ function renderNavigation() {
 // --- Submit button εμφάνιση ---
 function updateSubmitButton() {
   const submitBtn = form.querySelector('button[type="submit"]');
-  submitBtn.style.display = (currentIndex === questions.length - 1 && !quizSubmitted) ? "block" : "none";
+  if (!submitBtn) return;
+  submitBtn.style.display = (!quizSubmitted && currentIndex === questions.length - 1) ? "block" : "none";
 }
 
-// --- Save απάντησης και κίνηση ---
+// --- Save απάντησης ---
 function saveAnswerAndMove(step) {
   const q = questions[currentIndex];
 
@@ -264,7 +259,13 @@ function saveAnswerAndMove(step) {
     if (textarea) answers[q.id] = textarea.value.trim();
   }
 
-  localStorage.setItem("quizAnswers", JSON.stringify(answers));
+  // Αποθήκευση τρέχουσας ερώτησης
+  if (auth.currentUser && !quizSubmitted) {
+    db.collection("results").doc(auth.currentUser.uid + "_temp").set({
+      answers,
+      currentIndex
+    }, { merge: true });
+  }
 
   if (step !== 0) showQuestion(currentIndex + step);
 }
@@ -312,14 +313,15 @@ function submitQuiz() {
         passed,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
+
+      // Διαγραφή προσωρινής αποθήκευσης
+      db.collection("results").doc(user.uid + "_temp").delete();
     }
     localStorage.removeItem("quizStartTime");
-    localStorage.removeItem("quizCurrentIndex");
-    localStorage.removeItem("quizAnswers");
   }
 }
 
-// --- Εμφάνιση αποτελεσμάτων ---
+// --- Εμφάνιση συνολικών αποτελεσμάτων ---
 function showResultsScreen(correctCount, multipleCount, scorePercent, passed) {
   container.innerHTML = `
     <div class="result-card" style="text-align:center;background:rgba(255,255,255,0.15);
@@ -339,7 +341,7 @@ function showResultsScreen(correctCount, multipleCount, scorePercent, passed) {
   document.getElementById("view-answers").addEventListener("click", showDetailedResults);
 }
 
-// --- Αναλυτικές απαντήσεις ---
+// --- Προβολή αναλυτικών απαντήσεων ---
 function showDetailedResults() {
   container.innerHTML = "<h2 style='text-align:center;margin-bottom:25px;'>Αναλυτικά Αποτελέσματα</h2>";
 
@@ -378,7 +380,8 @@ function showDetailedResults() {
   backBtn.onclick = () => {
     const correct = questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length;
     const total = questions.filter(q => q.type === "multiple").length;
-    showResultsScreen(correct, total, Math.round((correct/total)*100), Math.round((correct/total)*100)>=80);
+    const percent = Math.round((correct / total) * 100);
+    showResultsScreen(correct, total, percent, percent >= 80);
   };
   container.appendChild(backBtn);
 }
@@ -386,7 +389,6 @@ function showDetailedResults() {
 // --- Submit event ---
 form.addEventListener("submit", e => {
   e.preventDefault();
-  if (quizSubmitted) return; // αν έχει ήδη κάνει το quiz, δεν κάνει τίποτα
   if (!confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;")) return;
   submitQuiz();
 });
