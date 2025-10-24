@@ -46,6 +46,11 @@ auth.onAuthStateChanged(async user => {
           data.scorePercent,
           data.passed
         );
+
+        // απενεργοποίηση submit button αν έχει ήδη υποβληθεί
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
         return;
       }
     }
@@ -238,6 +243,7 @@ function renderNavigation() {
 function updateSubmitButton() {
   const submitBtn = form.querySelector('button[type="submit"]');
   submitBtn.style.display = (currentIndex === questions.length - 1) ? "block" : "none";
+  if (quizSubmitted) submitBtn.disabled = true; // απενεργοποίηση αν έχει γίνει submit
 }
 
 // --- Save Answer & Move ---
@@ -258,6 +264,7 @@ function updateProgress() {
 
 // --- Submit Quiz ---
 function submitQuiz() {
+  if (quizSubmitted) return; // αποτροπή επανυποβολής
   saveAnswerAndMove(0);
   lockQuiz();
   clearInterval(timerInterval);
@@ -279,23 +286,24 @@ function submitQuiz() {
 
   showResultsScreen(correctCount, multipleCount, scorePercent, passed);
 
-  if (!quizSubmitted) {
-    quizSubmitted = true;
-    const user = auth.currentUser;
-    if (user) {
-      db.collection("results").add({
-        uid: user.uid,
-        email: user.email,
-        answers,
-        correctCount,
-        totalMultiple: multipleCount,
-        scorePercent,
-        passed,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    }
-    localStorage.removeItem("quizStartTime");
+  quizSubmitted = true;
+  const user = auth.currentUser;
+  if (user) {
+    db.collection("results").add({
+      uid: user.uid,
+      email: user.email,
+      answers,
+      correctCount,
+      totalMultiple: multipleCount,
+      scorePercent,
+      passed,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
   }
+  localStorage.removeItem("quizStartTime");
+
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
 }
 
 // --- Εμφάνιση συνολικών αποτελεσμάτων ---
@@ -372,6 +380,7 @@ function showDetailedResults() {
 // --- Submit event ---
 form.addEventListener("submit", e => {
   e.preventDefault();
+  if (quizSubmitted) return; // αποτροπή επανυποβολής
   if (!confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;")) return;
   submitQuiz();
 });
