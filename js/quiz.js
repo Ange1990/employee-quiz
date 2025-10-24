@@ -19,16 +19,12 @@ let quizSubmitted = false;
 
 // --- Έλεγχος σύνδεσης χρήστη ---
 auth.onAuthStateChanged(async user => {
-  if (!user) {
-    window.location.href = "index.html";
-    return;
-  }
+  if (!user) return window.location.href = "index.html";
 
   userEmailSpan.textContent = `Καλώς ήρθες, ${user.email}`;
   container.innerHTML = "<h3 style='text-align:center;'>Φόρτωση δεδομένων...</h3>";
 
   try {
-    // Έλεγχος αν έχει ήδη ολοκληρώσει το quiz
     const resultSnap = await db.collection("results")
       .where("uid", "==", user.uid)
       .orderBy("timestamp", "desc")
@@ -39,21 +35,18 @@ auth.onAuthStateChanged(async user => {
       const data = resultSnap.docs[0].data();
 
       if (data.scorePercent !== undefined && data.scorePercent !== null) {
-        // Quiz ολοκληρωμένο: δεν φορτώνουμε ερωτήσεις, δείχνουμε μόνο αποτελέσματα
+        // Quiz ολοκληρωμένο
         quizSubmitted = true;
         answers = data.answers || {};
-        showResultsScreen(
-          data.correctCount,
-          data.totalMultiple,
-          data.scorePercent,
-          data.passed
-        );
+        await loadQuestions(true); // κρύβουμε ερωτήσεις
+        showResultsScreen(data.correctCount, data.totalMultiple, data.scorePercent, data.passed);
+        form.querySelector('button[type="submit"]')?.setAttribute("disabled", true);
         return;
       } else if (data.answers) {
-        // Quiz ημιτελές: επαναφορά απαντήσεων και τρέχουσας ερώτησης
+        // Quiz ημιτελές: επαναφορά προόδου
         answers = data.answers;
         currentIndex = data.currentIndex || 0;
-        await loadQuestions();
+        await loadQuestions(false);
         showQuestion(currentIndex);
         startTimer();
         return;
@@ -61,24 +54,22 @@ auth.onAuthStateChanged(async user => {
     }
 
     // Quiz δεν έχει ξεκινήσει
-    await loadQuestions();
+    await loadQuestions(false);
     startTimer();
 
   } catch (err) {
     console.error("Σφάλμα φόρτωσης δεδομένων:", err);
-    container.innerHTML = "<p style='text-align:center;color:red;'>⚠️ Σφάλμα φόρτωσης δεδομένων. Δοκιμάστε ξανά.</p>";
+    container.innerHTML = "<p style='text-align:center;color:red;'>⚠️ Σφάλμα φόρτωσης δεδομένων.</p>";
   }
 });
 
 // --- Logout ---
 logoutBtn.addEventListener("click", () => {
-  auth.signOut().then(() => {
-    window.location.href = "index.html";
-  });
+  auth.signOut().then(() => window.location.href = "index.html");
 });
 
 // --- Φόρτωση ερωτήσεων ---
-async function loadQuestions() {
+async function loadQuestions(hideQuestions = false) {
   const user = auth.currentUser;
   if (!user) return;
 
@@ -98,11 +89,7 @@ async function loadQuestions() {
       }
     });
 
-    if (questions.length === 0) {
-      container.innerHTML = "<h2>Δεν υπάρχουν διαθέσιμες ερωτήσεις για την ομάδα σας.</h2>";
-    } else if (!quizSubmitted) {
-      showQuestion(currentIndex);
-    }
+    if (!hideQuestions && questions.length > 0) showQuestion(currentIndex);
 
   } catch (err) {
     console.error("Σφάλμα φόρτωσης ερωτήσεων:", err);
@@ -136,12 +123,12 @@ function startTimer() {
   }, 1000);
 }
 
-// --- Κλείδωμα Quiz ---
+// --- Lock Quiz ---
 function lockQuiz() {
   form.querySelectorAll("textarea, .stars span, input[type=radio], button").forEach(el => el.disabled = true);
 }
 
-// --- Εμφάνιση ερώτησης ---
+// --- Show Question ---
 function showQuestion(index) {
   currentIndex = index;
   const q = questions[index];
@@ -164,31 +151,24 @@ function showQuestion(index) {
     textarea.value = answers[q.id] || "";
     card.appendChild(textarea);
   } else if (q.type === "scale-stars") {
-    const starsWrapper = document.createElement("div");
-    starsWrapper.className = "stars-wrapper";
-    const numStars = 5;
-    const selected = parseInt(answers[q.id]) || 0;
     const starsDiv = document.createElement("div");
     starsDiv.className = "stars";
-
-    for (let i = 1; i <= numStars; i++) {
+    const selected = parseInt(answers[q.id]) || 0;
+    for (let i = 1; i <= 5; i++) {
       const star = document.createElement("span");
       star.textContent = i <= selected ? "★" : "☆";
       star.dataset.value = i;
       star.className = i <= selected ? "selected" : "";
       star.addEventListener("click", () => {
         answers[q.id] = i;
+        saveProgress();
         showQuestion(currentIndex);
       });
       starsDiv.appendChild(star);
     }
-
-    starsWrapper.appendChild(starsDiv);
-    card.appendChild(starsWrapper);
+    card.appendChild(starsDiv);
   } else if (q.type === "multiple") {
     const optionsDiv = document.createElement("div");
-    optionsDiv.className = "options";
-
     q.options.forEach(opt => {
       const label = document.createElement("label");
       const input = document.createElement("input");
@@ -196,16 +176,14 @@ function showQuestion(index) {
       input.name = q.id;
       input.value = opt;
       if (answers[q.id] === opt) input.checked = true;
-
       input.addEventListener("change", () => {
         answers[q.id] = opt;
+        saveProgress();
       });
-
       label.appendChild(input);
       label.appendChild(document.createTextNode(opt));
       optionsDiv.appendChild(label);
     });
-
     card.appendChild(optionsDiv);
   }
 
@@ -215,7 +193,7 @@ function showQuestion(index) {
   updateSubmitButton();
 }
 
-// --- Navigation buttons ---
+// --- Navigation ---
 function renderNavigation() {
   const nav = document.createElement("div");
   nav.style.display = "flex";
@@ -226,7 +204,6 @@ function renderNavigation() {
     const prevBtn = document.createElement("button");
     prevBtn.type = "button";
     prevBtn.textContent = "⬅ Προηγούμενο";
-    prevBtn.className = "nav-btn prev";
     prevBtn.onclick = () => saveAnswerAndMove(-1);
     nav.appendChild(prevBtn);
   }
@@ -235,7 +212,6 @@ function renderNavigation() {
     const nextBtn = document.createElement("button");
     nextBtn.type = "button";
     nextBtn.textContent = "Επόμενο ➡";
-    nextBtn.className = "nav-btn next";
     nextBtn.onclick = () => saveAnswerAndMove(1);
     nav.appendChild(nextBtn);
   }
@@ -243,40 +219,43 @@ function renderNavigation() {
   container.appendChild(nav);
 }
 
-// --- Submit button εμφάνιση ---
+// --- Submit Button ---
 function updateSubmitButton() {
   const submitBtn = form.querySelector('button[type="submit"]');
-  if (!submitBtn) return;
-  submitBtn.style.display = (!quizSubmitted && currentIndex === questions.length - 1) ? "block" : "none";
+  submitBtn.style.display = (currentIndex === questions.length - 1 && !quizSubmitted) ? "block" : "none";
 }
 
-// --- Save απάντησης ---
+// --- Save Answer & Move ---
 function saveAnswerAndMove(step) {
   const q = questions[currentIndex];
-
   if (q.type === "open") {
     const textarea = form.querySelector(`textarea[name="${q.id}"]`);
     if (textarea) answers[q.id] = textarea.value.trim();
   }
+  saveProgress();
+  if (step !== 0) showQuestion(currentIndex + step);
+}
 
-  // Αποθήκευση τρέχουσας ερώτησης
-  if (auth.currentUser && !quizSubmitted) {
-    db.collection("results").doc(auth.currentUser.uid + "_temp").set({
+// --- Save Progress ---
+function saveProgress() {
+  localStorage.setItem("quizAnswers", JSON.stringify(answers));
+  localStorage.setItem("quizCurrentIndex", currentIndex);
+  const user = auth.currentUser;
+  if (user && !quizSubmitted) {
+    db.collection("results").doc(user.uid + "_temp").set({
       answers,
       currentIndex
     }, { merge: true });
   }
-
-  if (step !== 0) showQuestion(currentIndex + step);
 }
 
-// --- Progress bar ---
+// --- Progress Bar ---
 function updateProgress() {
   const percent = ((currentIndex + 1) / questions.length) * 100;
   progressBar.style.width = `${percent}%`;
 }
 
-// --- Υποβολή Quiz ---
+// --- Submit Quiz ---
 function submitQuiz() {
   saveAnswerAndMove(0);
   lockQuiz();
@@ -288,13 +267,11 @@ function submitQuiz() {
   questions.forEach(q => {
     if (q.type === "multiple") {
       multipleCount++;
-      const userAnswer = answers[q.id];
-      const correct = q.correctAnswer;
-      if (userAnswer && correct && userAnswer === correct) correctCount++;
+      if (answers[q.id] === q.correctAnswer) correctCount++;
     }
   });
 
-  const scorePercent = multipleCount > 0 ? Math.round((correctCount / multipleCount) * 100) : 0;
+  const scorePercent = multipleCount ? Math.round((correctCount / multipleCount) * 100) : 0;
   const passed = scorePercent >= 80;
 
   showResultsScreen(correctCount, multipleCount, scorePercent, passed);
@@ -313,41 +290,39 @@ function submitQuiz() {
         passed,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
-
-      // Διαγραφή προσωρινής αποθήκευσης
       db.collection("results").doc(user.uid + "_temp").delete();
     }
     localStorage.removeItem("quizStartTime");
+    localStorage.removeItem("quizAnswers");
+    localStorage.removeItem("quizCurrentIndex");
   }
 }
 
-// --- Εμφάνιση συνολικών αποτελεσμάτων ---
+// --- Show Results Screen ---
 function showResultsScreen(correctCount, multipleCount, scorePercent, passed) {
   container.innerHTML = `
     <div class="result-card" style="text-align:center;background:rgba(255,255,255,0.15);
-    padding:40px;border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,0.3);animation:fadeIn 0.8s ease;">
+    padding:40px;border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,0.3);">
       <h2>Αποτελέσματα Ερωτηματολογίου</h2>
       <p style="font-size:22px;margin-top:20px;">Σωστές απαντήσεις: ${correctCount} / ${multipleCount}</p>
       <h3 style="font-size:28px;margin-top:10px;">Ποσοστό: <strong>${scorePercent}%</strong></h3>
       <h2 style="color:${passed ? 'lightgreen' : 'red'};font-size:32px;margin-top:20px;">
         ${passed ? '✅ Επιτυχία' : '❌ Αποτυχία'}
       </h2>
-      <button id="view-answers" type="button" class="nav-btn submit" style="margin-top:25px;">
-        📄 Προβολή Αναλυτικών Αποτελεσμάτων
-      </button>
+      <button id="view-answers" type="button" style="margin-top:25px;">📄 Προβολή Αναλυτικών Αποτελεσμάτων</button>
     </div>
   `;
 
   document.getElementById("view-answers").addEventListener("click", showDetailedResults);
 }
 
-// --- Προβολή αναλυτικών απαντήσεων ---
+// --- Show Detailed Answers ---
 function showDetailedResults() {
   container.innerHTML = "<h2 style='text-align:center;margin-bottom:25px;'>Αναλυτικά Αποτελέσματα</h2>";
 
   questions.forEach(q => {
     const userAnswer = answers[q.id];
-    const correct = q.correctAnswer || null;
+    const correct = q.correctAnswer;
     const isCorrect = q.type === "multiple" && userAnswer === correct;
 
     const card = document.createElement("div");
@@ -373,16 +348,20 @@ function showDetailedResults() {
   });
 
   const backBtn = document.createElement("button");
-  backBtn.type = "button";
   backBtn.textContent = "⬅ Επιστροφή στα αποτελέσματα";
-  backBtn.className = "nav-btn prev";
   backBtn.style.marginTop = "25px";
-  backBtn.onclick = () => {
-    const correct = questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length;
-    const total = questions.filter(q => q.type === "multiple").length;
-    const percent = Math.round((correct / total) * 100);
-    showResultsScreen(correct, total, percent, percent >= 80);
-  };
+  backBtn.onclick = () => showResultsScreen(
+    questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length,
+    questions.filter(q => q.type === "multiple").length,
+    Math.round(
+      (questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length /
+        questions.filter(q => q.type === "multiple").length) * 100
+    ),
+    Math.round(
+      (questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length /
+        questions.filter(q => q.type === "multiple").length) * 100
+    ) >= 80
+  );
   container.appendChild(backBtn);
 }
 
