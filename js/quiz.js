@@ -5,7 +5,7 @@ const userEmailSpan = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
 const progressBar = document.getElementById("progress");
 
-const TIMER_TOTAL = 15 * 60; // 15 λεπτά
+const TIMER_TOTAL = 15 * 60; // ⏱️ 15 λεπτά
 const timerDisplay = document.createElement("div");
 timerDisplay.style.marginBottom = "15px";
 timerDisplay.style.fontWeight = "600";
@@ -17,13 +17,6 @@ let answers = {};
 let timerInterval = null;
 let quizSubmitted = false;
 
-// --- Εμφάνιση προσωρινού loader ---
-container.innerHTML = `
-  <div style="text-align:center; font-size:22px; color:#fff; padding:40px;">
-    ⏳ Φόρτωση δεδομένων, παρακαλώ περιμένετε...
-  </div>
-`;
-
 // --- Έλεγχος σύνδεσης χρήστη ---
 auth.onAuthStateChanged(async user => {
   if (!user) {
@@ -32,52 +25,46 @@ auth.onAuthStateChanged(async user => {
   }
 
   userEmailSpan.textContent = `Καλώς ήρθες, ${user.email}`;
+  container.innerHTML = "<h3 style='text-align:center;'>Φόρτωση δεδομένων...</h3>";
 
   try {
-    // 🔍 Έλεγχος αν υπάρχει ήδη ολοκληρωμένο αποτέλεσμα
-    const existingResultSnap = await db.collection("results")
+    // 🔍 Έλεγχος αν έχει ήδη κάνει quiz
+    const resultSnap = await db.collection("results")
       .where("uid", "==", user.uid)
-      .orderBy("timestamp", "desc")
       .limit(1)
       .get();
 
-    let hasCompletedQuiz = false;
-    let latestResultData = null;
+    if (!resultSnap.empty) {
+      const data = resultSnap.docs[0].data();
 
-    if (!existingResultSnap.empty) {
-      const doc = existingResultSnap.docs[0];
-      const data = doc.data();
+      // Αν έχει υπολογισμένο score, σημαίνει πως έχει τελειώσει το quiz
       if (data.scorePercent !== undefined && data.scorePercent !== null) {
-        hasCompletedQuiz = true;
-        latestResultData = data;
+        quizSubmitted = true;
+        answers = data.answers || {};
+        showResultsScreen(
+          data.correctCount,
+          data.totalMultiple,
+          data.scorePercent,
+          data.passed
+        );
+        return; // Δεν φορτώνουμε ξανά τις ερωτήσεις
       }
     }
 
-    if (hasCompletedQuiz) {
-      // ✅ Έχει ήδη υποβάλει
-      quizSubmitted = true;
-      answers = latestResultData.answers || {};
-      showResultsScreen(
-        latestResultData.correctCount,
-        latestResultData.totalMultiple,
-        latestResultData.scorePercent,
-        latestResultData.passed
-      );
-    } else {
-      // ✅ Δεν έχει υποβάλει ακόμα — ξεκινά το quiz
-      await loadQuestions();
-      startTimer();
-    }
+    // Αν δεν έχει κάνει quiz, κανονικά ξεκινά
+    await loadQuestions();
+    startTimer();
+
   } catch (err) {
-    console.error("Σφάλμα κατά τον έλεγχο αποτελεσμάτων:", err);
-    container.innerHTML = "<p>⚠️ Σφάλμα φόρτωσης δεδομένων. Δοκιμάστε ξανά.</p>";
+    console.error("Σφάλμα φόρτωσης δεδομένων:", err);
+    container.innerHTML = "<p style='text-align:center;color:red;'>⚠️ Σφάλμα φόρτωσης δεδομένων. Δοκιμάστε ξανά.</p>";
   }
 });
 
 // --- Logout ---
 logoutBtn.addEventListener("click", () => {
   auth.signOut().then(() => {
-    localStorage.removeItem("quizStartTime");
+    // Δεν καθαρίζουμε το quizStartTime για να συνεχίσει αν ξαναμπεί
     window.location.href = "index.html";
   });
 });
@@ -111,7 +98,7 @@ async function loadQuestions() {
 
   } catch (err) {
     console.error("Σφάλμα φόρτωσης ερωτήσεων:", err);
-    container.innerHTML = "<h2>⚠️ Σφάλμα φόρτωσης ερωτήσεων.</h2>";
+    container.innerHTML = "<p style='text-align:center;color:red;'>⚠️ Σφάλμα φόρτωσης ερωτήσεων.</p>";
   }
 }
 
@@ -143,9 +130,7 @@ function startTimer() {
 
 // --- Κλείδωμα Quiz ---
 function lockQuiz() {
-  form.querySelectorAll("textarea, .stars span, input[type=radio], button.nav-btn").forEach(el => {
-    el.disabled = true;
-  });
+  form.querySelectorAll("textarea, .stars span, input[type=radio], button").forEach(el => el.disabled = true);
 }
 
 // --- Εμφάνιση ερώτησης ---
@@ -170,8 +155,7 @@ function showQuestion(index) {
     textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
     textarea.value = answers[q.id] || "";
     card.appendChild(textarea);
-  } 
-  else if (q.type === "scale-stars") {
+  } else if (q.type === "scale-stars") {
     const starsWrapper = document.createElement("div");
     starsWrapper.className = "stars-wrapper";
     const numStars = 5;
@@ -193,8 +177,7 @@ function showQuestion(index) {
 
     starsWrapper.appendChild(starsDiv);
     card.appendChild(starsWrapper);
-  } 
-  else if (q.type === "multiple") {
+  } else if (q.type === "multiple") {
     const optionsDiv = document.createElement("div");
     optionsDiv.className = "options";
 
@@ -252,7 +235,7 @@ function renderNavigation() {
   container.appendChild(nav);
 }
 
-// --- Submit button ---
+// --- Submit button εμφάνιση ---
 function updateSubmitButton() {
   const submitBtn = form.querySelector('button[type="submit"]');
   submitBtn.style.display = (currentIndex === questions.length - 1) ? "block" : "none";
@@ -318,24 +301,20 @@ function submitQuiz() {
   }
 }
 
-// --- Εμφάνιση αποτελεσμάτων ---
+// --- Εμφάνιση συνολικών αποτελεσμάτων ---
 function showResultsScreen(correctCount, multipleCount, scorePercent, passed) {
   container.innerHTML = `
-    <div class="result-card" style="
-      text-align:center;
-      background: rgba(255,255,255,0.15);
-      padding: 40px;
-      border-radius: 20px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-      animation: fadeIn 0.8s ease;
-    ">
+    <div class="result-card" style="text-align:center;background:rgba(255,255,255,0.15);
+    padding:40px;border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,0.3);animation:fadeIn 0.8s ease;">
       <h2>Αποτελέσματα Ερωτηματολογίου</h2>
       <p style="font-size:22px;margin-top:20px;">Σωστές απαντήσεις: ${correctCount} / ${multipleCount}</p>
       <h3 style="font-size:28px;margin-top:10px;">Ποσοστό: <strong>${scorePercent}%</strong></h3>
-      <h2 style="color:${passed ? 'lightgreen' : 'red'}; font-size:32px; margin-top:20px;">
+      <h2 style="color:${passed ? 'lightgreen' : 'red'};font-size:32px;margin-top:20px;">
         ${passed ? '✅ Επιτυχία' : '❌ Αποτυχία'}
       </h2>
-      <button id="view-answers" type="button" class="nav-btn submit" style="margin-top:25px;">📄 Προβολή Αναλυτικών Αποτελεσμάτων</button>
+      <button id="view-answers" type="button" class="nav-btn submit" style="margin-top:25px;">
+        📄 Προβολή Αναλυτικών Αποτελεσμάτων
+      </button>
     </div>
   `;
 
@@ -365,7 +344,8 @@ function showDetailedResults() {
       card.innerHTML += `<p><strong>Η βαθμολογία σου:</strong> ${userAnswer ? userAnswer + " ⭐" : "<em>Δεν βαθμολόγησες</em>"}</p>`;
     } else if (q.type === "multiple") {
       card.innerHTML += `
-        <p><strong>Η απάντησή σου:</strong> ${userAnswer || "<em>Δεν απάντησες</em>"} ${userAnswer ? (isCorrect ? "✅" : "❌") : ""}</p>
+        <p><strong>Η απάντησή σου:</strong> ${userAnswer || "<em>Δεν απάντησες</em>"} ${userAnswer ? (isCorrect ? "✅" : "❌") : ""}
+        </p>
         ${correct ? `<p><strong>Σωστή απάντηση:</strong> ${correct}</p>` : ""}
       `;
     }
