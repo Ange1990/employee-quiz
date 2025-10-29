@@ -4,10 +4,17 @@ loginForm.addEventListener('submit', (e) => {
   const email = document.getElementById('email').value;
   const password = document.getElementById('password').value;
 
+  
   auth.signInWithEmailAndPassword(email, password)
     .then(() => {
-      // Αν είναι ο CEO, πάει στο dashboard, αλλιώς στο quiz
-      if (email === "nafpliotis@sspc.gr") {
+      // Λίστα με emails CEO
+      const ceoEmails = [
+        "nafpliotis@sspc.gr",
+        "tzanetopoulou@sspc.gr", // ← πρόσθεσε εδώ τον 2ο
+        "nafpliotou@sspc.gr"  // ← και εδώ τον 3ο
+      ];
+
+      if (ceoEmails.includes(email)) {
         window.location.href = "dashboard.html";
       } else {
         window.location.href = "quiz.html";
@@ -17,3 +24,4 @@ loginForm.addEventListener('submit', (e) => {
       alert("Σφάλμα: " + error.message);
     });
 });
+
