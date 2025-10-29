@@ -10,16 +10,27 @@ let questionsOrder = [];
 
 auth.onAuthStateChanged(user => {
   if (!user) {
+    // Αν δεν είναι συνδεδεμένος, επιστρέφει στη σελίδα σύνδεσης
     window.location.href = "index.html";
   } else {
-    if (user.email !== "nafpliotis@sspc.gr") {
+    // Λίστα με τα email των CEO
+    const ceoEmails = [
+      "nafpliotis@sspc.gr",
+      "tzanetopoulou@sspc.gr",   // 🔹 γράψε εδώ το 2ο email
+      "nafpliotou@sspc.gr"    // 🔹 και εδώ το 3ο email
+    ];
+
+    // Έλεγχος πρόσβασης
+    if (!ceoEmails.includes(user.email.toLowerCase())) {
       alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
       window.location.href = "index.html";
     } else {
+      // Αν είναι CEO, φόρτωσε τα δεδομένα
       loadQuestions().then(() => loadResults());
     }
   }
 });
+
 
 logoutBtn.addEventListener("click", () => {
   auth.signOut().then(() => window.location.href = "index.html");
@@ -185,3 +196,4 @@ exportBtn.addEventListener("click", () => {
   a.click();
   document.body.removeChild(a);
 });
+
