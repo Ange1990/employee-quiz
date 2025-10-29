@@ -81,12 +81,25 @@ let editId = null;
 
 // --- Έλεγχος CEO ---
 auth.onAuthStateChanged(user => {
-  if(!user) window.location.href="index.html";
-  else if(user.email !== "nafpliotis@sspc.gr"){
-    alert("Δεν έχετε πρόσβαση"); 
-    window.location.href="index.html";
+  if (!user) {
+    // Αν δεν υπάρχει συνδεδεμένος χρήστης → επιστροφή στη login σελίδα
+    window.location.href = "index.html";
   } else {
-    loadQuestions();
+    // Λίστα με όλα τα emails των CEO
+    const ceoEmails = [
+      "nafpliotis@sspc.gr",
+      "tzanetopoulou@sspc.gr",   // 🔹 δεύτερος CEO
+      "nafpliotou@sspc.gr"    // 🔹 τρίτος CEO
+    ];
+
+    // Έλεγχος αν το email του χρήστη είναι μέσα στη λίστα
+    if (!ceoEmails.includes(user.email.toLowerCase())) {
+      alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
+      window.location.href = "index.html";
+    } else {
+      // Αν είναι CEO → συνέχισε κανονικά
+      loadQuestions();
+    }
   }
 });
 
@@ -266,3 +279,4 @@ saveOrderBtn.addEventListener("click", () => {
 
 </body>
 </html>
+
