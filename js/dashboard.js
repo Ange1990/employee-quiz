@@ -8,29 +8,25 @@ let allResults = [];
 let allQuestions = {}; // {id: {text, type, options, correctAnswer}}
 let questionsOrder = [];
 
+// Έλεγχος σύνδεσης & πρόσβασης
 auth.onAuthStateChanged(user => {
   if (!user) {
-    // Αν δεν είναι συνδεδεμένος, επιστρέφει στη σελίδα σύνδεσης
     window.location.href = "index.html";
   } else {
-    // Λίστα με τα email των CEO
     const ceoEmails = [
       "nafpliotis@sspc.gr",
-      "tzanetopoulou@sspc.gr",   // 🔹 γράψε εδώ το 2ο email
-      "nafpliotou@sspc.gr"    // 🔹 και εδώ το 3ο email
+      "tzanetopoulou@sspc.gr",
+      "nafpliotou@sspc.gr"
     ];
 
-    // Έλεγχος πρόσβασης
     if (!ceoEmails.includes(user.email.toLowerCase())) {
       alert("Δεν έχετε πρόσβαση σε αυτή τη σελίδα.");
       window.location.href = "index.html";
     } else {
-      // Αν είναι CEO, φόρτωσε τα δεδομένα
       loadQuestions().then(() => loadResults());
     }
   }
 });
-
 
 logoutBtn.addEventListener("click", () => {
   auth.signOut().then(() => window.location.href = "index.html");
@@ -40,7 +36,7 @@ manageBtn.addEventListener("click", () => {
   window.location.href = "questions.html";
 });
 
-// --- Load all questions ---
+// --- Φόρτωση ερωτήσεων ---
 function loadQuestions() {
   return db.collection("questions").orderBy("order").get()
     .then(snapshot => {
@@ -48,18 +44,18 @@ function loadQuestions() {
       questionsOrder = [];
       snapshot.forEach(doc => {
         const qData = doc.data();
-        allQuestions[doc.id] = { 
-          text: qData.text, 
-          type: qData.type, 
-          options: qData.options || [], 
-          correctAnswer: qData.correctAnswer || null 
+        allQuestions[doc.id] = {
+          text: qData.text,
+          type: qData.type,
+          options: qData.options || [],
+          correctAnswer: qData.correctAnswer || null
         };
         questionsOrder.push(doc.id);
       });
     });
 }
 
-// --- Load results ---
+// --- Φόρτωση αποτελεσμάτων ---
 function loadResults() {
   db.collection("results").orderBy("timestamp", "desc").get()
     .then(snapshot => {
@@ -72,7 +68,7 @@ function loadResults() {
     .catch(error => console.error("Σφάλμα κατά τη φόρτωση αποτελεσμάτων:", error));
 }
 
-// --- Render results with score per employee ---
+// --- Εμφάνιση αποτελεσμάτων ---
 function renderResults(resultsArray) {
   resultsBody.innerHTML = "";
 
@@ -80,14 +76,15 @@ function renderResults(resultsArray) {
     const docId = item.id;
     const data = item.data;
     const dateObj = data.timestamp ? data.timestamp.toDate() : null;
-    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,"0")}` : "";
+    const date = dateObj
+      ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,"0")}`
+      : "";
 
     const row = document.createElement("tr");
 
     let correctCount = 0;
     let totalCount = 0;
 
-    // Δημιουργία απαντήσεων με σωστή/λάθος χρωματική ένδειξη
     const answersHTML = questionsOrder
       .filter(qId => data.answers[qId] !== undefined)
       .map(qId => {
@@ -99,12 +96,11 @@ function renderResults(resultsArray) {
         if (q && q.correctAnswer !== null && q.type === "multiple") {
           correct = (ans === q.correctAnswer);
         }
-
         if (correct) correctCount++;
 
         const color = correct ? "green" : "red";
-        const answerText = (q.type === "scale-stars") 
-          ? "⭐".repeat(Number(ans)) 
+        const answerText = (q.type === "scale-stars")
+          ? "⭐".repeat(Number(ans))
           : ans;
 
         return `
@@ -131,7 +127,7 @@ function renderResults(resultsArray) {
     `;
 
     row.querySelector(".delete-btn").addEventListener("click", () => {
-      if(confirm("Είσαι σίγουρος ότι θέλεις να διαγράψεις αυτό το αποτέλεσμα;")){
+      if (confirm("Είσαι σίγουρος ότι θέλεις να διαγράψεις αυτό το αποτέλεσμα;")) {
         db.collection("results").doc(docId).delete()
           .then(() => {
             row.remove();
@@ -145,55 +141,88 @@ function renderResults(resultsArray) {
   });
 }
 
-// --- Search filter ---
+// --- Αναζήτηση ---
 searchInput.addEventListener("input", () => {
   const query = searchInput.value.toLowerCase();
   const filtered = allResults.filter(item => item.data.email.toLowerCase().includes(query));
   renderResults(filtered);
 });
 
-// --- Export CSV ---
+// --- Εξαγωγή σε Excel (.xlsx) με χρώματα ---
 exportBtn.addEventListener("click", () => {
-  if (!allResults.length) { alert("Δεν υπάρχουν αποτελέσματα για εξαγωγή."); return; }
+  if (!allResults.length) {
+    alert("Δεν υπάρχουν αποτελέσματα για εξαγωγή.");
+    return;
+  }
 
-  const headers = ["Email Υπαλλήλου", "Απαντήσεις", "Ημερομηνία Υποβολής", "Σωστές/Σύνολο", "Ποσοστό"];
-  const rows = [headers.join(",")];
+  const headers = ["Email", "Ερώτηση", "Απάντηση", "Σωστή;", "Ημερομηνία", "Σωστές/Σύνολο", "Ποσοστό"];
+  const dataRows = [headers];
 
   allResults.forEach(item => {
     const data = item.data;
     const dateObj = data.timestamp ? data.timestamp.toDate() : null;
-    const date = dateObj ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,"0")}` : "";
+    const date = dateObj
+      ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,"0")}`
+      : "";
 
     let correctCount = 0;
     let totalCount = 0;
 
-    const answersText = questionsOrder
-      .filter(qId => data.answers[qId] !== undefined)
-      .map(qId => {
+    questionsOrder.forEach(qId => {
+      if (data.answers[qId] !== undefined) {
         const q = allQuestions[qId];
         const ans = data.answers[qId];
         totalCount++;
-        let correct = false;
+
+        let isCorrect = false;
         if (q && q.correctAnswer !== null && q.type === "multiple") {
-          correct = (ans === q.correctAnswer);
+          isCorrect = (ans === q.correctAnswer);
         }
-        if (correct) correctCount++;
-        return `${q.text}: ${ans}`;
-      }).join(" | ");
+        if (isCorrect) correctCount++;
+
+        dataRows.push([
+          data.email,
+          q.text,
+          ans,
+          isCorrect ? "Σωστή" : "Λάθος",
+          date,
+          "",
+          ""
+        ]);
+      }
+    });
 
     const percent = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
-    const row = [data.email, `"${answersText.replace(/"/g,'""')}"`, date, `${correctCount}/${totalCount}`, `${percent}%`].join(",");
-    rows.push(row);
+    dataRows.push(["", "", "", "", "", `${correctCount}/${totalCount}`, `${percent}%`]);
+    dataRows.push([]);
   });
 
-  const csvContent = "\uFEFF" + rows.join("\r\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `quiz_results_${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-});
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(dataRows);
 
+  // --- Χρωματισμός κελιών ---
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+  for (let R = 1; R <= range.e.r; R++) {
+    const cellRef = XLSX.utils.encode_cell({ r: R, c: 3 });
+    const cell = ws[cellRef];
+    if (!cell) continue;
+    if (cell.v === "Σωστή") {
+      cell.s = { fill: { fgColor: { rgb: "C6EFCE" } }, font: { color: { rgb: "006100" }, bold: true } };
+    } else if (cell.v === "Λάθος") {
+      cell.s = { fill: { fgColor: { rgb: "FFC7CE" } }, font: { color: { rgb: "9C0006" }, bold: true } };
+    }
+  }
+
+  ws["!cols"] = [
+    { wch: 30 },
+    { wch: 70 },
+    { wch: 40 },
+    { wch: 10 },
+    { wch: 20 },
+    { wch: 15 },
+    { wch: 10 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, "Αποτελέσματα");
+  XLSX.writeFile(wb, `quiz_results_${new Date().toISOString().slice(0,10)}.xlsx`);
+});
