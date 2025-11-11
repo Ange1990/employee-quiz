@@ -193,7 +193,7 @@ exportBtn.addEventListener("click", () => {
     });
 
     const percent = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
-    dataRows.push(["", "", "", "", "", `${correctCount}/${totalCount}`, `${percent}%`]);
+    dataRows.push([data.email, "", "", "", "", `${correctCount}/${totalCount}`, `${percent}%`]);
     dataRows.push([]);
   });
 
@@ -226,3 +226,4 @@ exportBtn.addEventListener("click", () => {
   XLSX.utils.book_append_sheet(wb, ws, "Αποτελέσματα");
   XLSX.writeFile(wb, `quiz_results_${new Date().toISOString().slice(0,10)}.xlsx`);
 });
+
