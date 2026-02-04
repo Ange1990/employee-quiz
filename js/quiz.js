@@ -5,17 +5,30 @@ const userEmailSpan = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
 const progressBar = document.getElementById("progress");
 
-const TIMER_TOTAL = 15 * 60;
+// --- Ρυθμίσεις ---
+const TIMER_TOTAL = 15 * 60; // 15 λεπτά
+const TIMER_KEY = "quizStartTime";
+
+// --- Timer UI ---
 const timerDisplay = document.createElement("div");
 timerDisplay.style.marginBottom = "15px";
 timerDisplay.style.fontWeight = "600";
 form.prepend(timerDisplay);
 
+// --- State ---
 let questions = [];
 let currentIndex = 0;
 let answers = {};
 let timerInterval = null;
 let quizSubmitted = false;
+
+// --- Shuffle ---
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
 
 // --- Έλεγχος σύνδεσης χρήστη ---
 auth.onAuthStateChanged(async user => {
@@ -35,22 +48,16 @@ auth.onAuthStateChanged(async user => {
 
     if (!resultSnap.empty) {
       const data = resultSnap.docs[0].data();
-
-      if (data.scorePercent !== undefined && data.scorePercent !== null) {
+      if (data.scorePercent !== undefined) {
         quizSubmitted = true;
         answers = data.answers || {};
-        await loadQuestions(true); // μόνο για αναλυτικά αποτελέσματα
+        await loadQuestions(true);
         showResultsScreen(
           data.correctCount,
           data.totalMultiple,
           data.scorePercent,
           data.passed
         );
-
-        // απενεργοποίηση submit button αν έχει ήδη υποβληθεί
-        const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
-
         return;
       }
     }
@@ -59,16 +66,14 @@ auth.onAuthStateChanged(async user => {
     startTimer();
 
   } catch (err) {
-    console.error("Σφάλμα φόρτωσης δεδομένων:", err);
-    container.innerHTML = "<p style='text-align:center;color:red;'>⚠️ Σφάλμα φόρτωσης δεδομένων. Δοκιμάστε ξανά.</p>";
+    console.error(err);
+    container.innerHTML = "<p style='color:red;text-align:center;'>Σφάλμα φόρτωσης.</p>";
   }
 });
 
 // --- Logout ---
 logoutBtn.addEventListener("click", () => {
-  auth.signOut().then(() => {
-    window.location.href = "index.html";
-  });
+  auth.signOut().then(() => window.location.href = "index.html");
 });
 
 // --- Φόρτωση ερωτήσεων ---
@@ -76,42 +81,47 @@ async function loadQuestions(hideQuestions = false) {
   const user = auth.currentUser;
   if (!user) return;
 
-  try {
-    const userDoc = await db.collection("users").doc(user.uid).get();
-    const userGroup = userDoc.exists ? userDoc.data().group : null;
+  const ORDER_KEY = `quizQuestionOrder_${user.uid}`;
 
-    const snapshot = await db.collection("questions").orderBy("order").get();
-    questions = [];
+  const userDoc = await db.collection("users").doc(user.uid).get();
+  const userGroup = userDoc.exists ? userDoc.data().group : null;
 
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      if (data.group === undefined || data.group === null || data.group === userGroup) {
-        if (["open", "scale-stars", "multiple"].includes(data.type)) {
-          questions.push({ id: doc.id, ...data });
-        }
-      }
-    });
+  const snapshot = await db.collection("questions").orderBy("order").get();
+  questions = [];
 
-    if (!hideQuestions) {
-      if (questions.length === 0) {
-        container.innerHTML = "<h2>Δεν υπάρχουν διαθέσιμες ερωτήσεις για την ομάδα σας.</h2>";
-      } else {
-        showQuestion(0);
-      }
+  snapshot.forEach(doc => {
+    const data = doc.data();
+    if (
+      (data.group === undefined || data.group === null || data.group === userGroup) &&
+      ["open", "scale-stars", "multiple"].includes(data.type)
+    ) {
+      questions.push({ id: doc.id, ...data });
     }
+  });
 
-  } catch (err) {
-    console.error("Σφάλμα φόρτωσης ερωτήσεων:", err);
-    container.innerHTML = "<p style='text-align:center;color:red;'>⚠️ Σφάλμα φόρτωσης ερωτήσεων.</p>";
+  // --- ΤΥΧΑΙΑ ΣΕΙΡΑ ΑΝΑ ΧΡΗΣΤΗ (ΜΙΑ ΦΟΡΑ) ---
+  const savedOrder = localStorage.getItem(ORDER_KEY);
+
+  if (savedOrder) {
+    const order = JSON.parse(savedOrder);
+    questions.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  } else {
+    shuffleArray(questions);
+    localStorage.setItem(
+      ORDER_KEY,
+      JSON.stringify(questions.map(q => q.id))
+    );
   }
+
+  if (!hideQuestions) showQuestion(0);
 }
 
 // --- Timer ---
 function startTimer() {
-  let startTime = localStorage.getItem("quizStartTime");
+  let startTime = localStorage.getItem(TIMER_KEY);
   if (!startTime) {
     startTime = Date.now();
-    localStorage.setItem("quizStartTime", startTime);
+    localStorage.setItem(TIMER_KEY, startTime);
   } else startTime = parseInt(startTime);
 
   timerInterval = setInterval(() => {
@@ -120,24 +130,17 @@ function startTimer() {
 
     if (remaining <= 0) {
       clearInterval(timerInterval);
-      timerDisplay.textContent = "Χρόνος: 00:00";
-      localStorage.removeItem("quizStartTime");
       submitQuiz();
       return;
     }
 
-    const minutes = Math.floor(remaining / 60);
-    const seconds = remaining % 60;
-    timerDisplay.textContent = `Χρόνος: ${minutes}:${seconds.toString().padStart(2, "0")}`;
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    timerDisplay.textContent = `Χρόνος: ${m}:${String(s).padStart(2, "0")}`;
   }, 1000);
 }
 
-// --- Lock Quiz ---
-function lockQuiz() {
-  form.querySelectorAll("textarea, .stars span, input[type=radio], button").forEach(el => el.disabled = true);
-}
-
-// --- Show Question ---
+// --- Εμφάνιση ερώτησης ---
 function showQuestion(index) {
   currentIndex = index;
   const q = questions[index];
@@ -145,70 +148,44 @@ function showQuestion(index) {
 
   const card = document.createElement("div");
   card.className = "question-card";
-  card.style.minHeight = "180px";
-
-  const qText = document.createElement("div");
-  qText.className = "question-text";
-  qText.textContent = q.text;
-  card.appendChild(qText);
+  card.innerHTML = `<div class="question-text">${q.text}</div>`;
 
   if (q.type === "open") {
-    const textarea = document.createElement("textarea");
-    textarea.name = q.id;
-    textarea.rows = 4;
-    textarea.placeholder = "Γράψε την απάντησή σου εδώ...";
-    textarea.value = answers[q.id] || "";
-    card.appendChild(textarea);
-  } else if (q.type === "scale-stars") {
-    const starsWrapper = document.createElement("div");
-    starsWrapper.className = "stars-wrapper";
-    const numStars = 5;
-    const selected = parseInt(answers[q.id]) || 0;
-    const starsDiv = document.createElement("div");
-    starsDiv.className = "stars";
+    const t = document.createElement("textarea");
+    t.value = answers[q.id] || "";
+    t.oninput = () => answers[q.id] = t.value;
+    card.appendChild(t);
+  }
 
-    for (let i = 1; i <= numStars; i++) {
-      const star = document.createElement("span");
-      star.textContent = i <= selected ? "★" : "☆";
-      star.dataset.value = i;
-      star.className = i <= selected ? "selected" : "";
-      star.addEventListener("click", () => {
-        answers[q.id] = i;
-        showQuestion(currentIndex);
-      });
-      starsDiv.appendChild(star);
+  if (q.type === "scale-stars") {
+    const wrap = document.createElement("div");
+    wrap.className = "stars";
+    for (let i = 1; i <= 5; i++) {
+      const s = document.createElement("span");
+      s.textContent = i <= (answers[q.id] || 0) ? "★" : "☆";
+      s.onclick = () => { answers[q.id] = i; showQuestion(currentIndex); };
+      wrap.appendChild(s);
     }
+    card.appendChild(wrap);
+  }
 
-    starsWrapper.appendChild(starsDiv);
-    card.appendChild(starsWrapper);
-  } else if (q.type === "multiple") {
-    const optionsDiv = document.createElement("div");
-    optionsDiv.className = "options";
-
+  if (q.type === "multiple") {
     q.options.forEach(opt => {
       const label = document.createElement("label");
       const input = document.createElement("input");
       input.type = "radio";
       input.name = q.id;
-      input.value = opt;
-      if (answers[q.id] === opt) input.checked = true;
-
-      input.addEventListener("change", () => {
-        answers[q.id] = opt;
-      });
-
+      input.checked = answers[q.id] === opt;
+      input.onchange = () => answers[q.id] = opt;
       label.appendChild(input);
-      label.appendChild(document.createTextNode(opt));
-      optionsDiv.appendChild(label);
+      label.append(opt);
+      card.appendChild(label);
     });
-
-    card.appendChild(optionsDiv);
   }
 
   container.appendChild(card);
   renderNavigation();
   updateProgress();
-  updateSubmitButton();
 }
 
 // --- Navigation ---
@@ -219,168 +196,77 @@ function renderNavigation() {
   nav.style.marginTop = "25px";
 
   if (currentIndex > 0) {
-    const prevBtn = document.createElement("button");
-    prevBtn.type = "button";
-    prevBtn.textContent = "⬅ Προηγούμενο";
-    prevBtn.className = "nav-btn prev";
-    prevBtn.onclick = () => saveAnswerAndMove(-1);
-    nav.appendChild(prevBtn);
+    const prev = document.createElement("button");
+    prev.textContent = "⬅ Προηγούμενο";
+    prev.className = "nav-btn prev";
+    prev.onclick = () => showQuestion(currentIndex - 1);
+    nav.appendChild(prev);
   }
 
   if (currentIndex < questions.length - 1) {
-    const nextBtn = document.createElement("button");
-    nextBtn.type = "button";
-    nextBtn.textContent = "Επόμενο ➡";
-    nextBtn.className = "nav-btn next";
-    nextBtn.onclick = () => saveAnswerAndMove(1);
-    nav.appendChild(nextBtn);
+    const next = document.createElement("button");
+    next.textContent = "Επόμενο ➡";
+    next.className = "nav-btn next";
+    next.onclick = () => showQuestion(currentIndex + 1);
+    nav.appendChild(next);
   }
 
   container.appendChild(nav);
 }
 
-// --- Submit Button ---
-function updateSubmitButton() {
-  const submitBtn = form.querySelector('button[type="submit"]');
-  submitBtn.style.display = (currentIndex === questions.length - 1) ? "block" : "none";
-  if (quizSubmitted) submitBtn.disabled = true; // απενεργοποίηση αν έχει γίνει submit
-}
-
-// --- Save Answer & Move ---
-function saveAnswerAndMove(step) {
-  const q = questions[currentIndex];
-  if (q.type === "open") {
-    const textarea = form.querySelector(`textarea[name="${q.id}"]`);
-    if (textarea) answers[q.id] = textarea.value.trim();
-  }
-  if (step !== 0) showQuestion(currentIndex + step);
-}
-
 // --- Progress ---
 function updateProgress() {
-  const percent = ((currentIndex + 1) / questions.length) * 100;
-  progressBar.style.width = `${percent}%`;
+  progressBar.style.width = `${((currentIndex + 1) / questions.length) * 100}%`;
 }
 
-// --- Submit Quiz ---
+// --- Υποβολή ---
 function submitQuiz() {
-  if (quizSubmitted) return; // αποτροπή επανυποβολής
-  saveAnswerAndMove(0);
-  lockQuiz();
+  if (quizSubmitted) return;
+  quizSubmitted = true;
   clearInterval(timerInterval);
 
-  let correctCount = 0;
-  let multipleCount = 0;
-
+  let correct = 0, total = 0;
   questions.forEach(q => {
-    if (q.type === "multiple") {
-      multipleCount++;
-      const userAnswer = answers[q.id];
-      const correct = q.correctAnswer;
-      if (userAnswer && correct && userAnswer === correct) correctCount++;
+    if (q.type === "multiple" && q.correctAnswer) {
+      total++;
+      if (answers[q.id] === q.correctAnswer) correct++;
     }
   });
 
-  const scorePercent = multipleCount > 0 ? Math.round((correctCount / multipleCount) * 100) : 0;
-  const passed = scorePercent >= 85;
+  const percent = total ? Math.round((correct / total) * 100) : 0;
+  const passed = percent >= 85;
 
-  showResultsScreen(correctCount, multipleCount, scorePercent, passed);
+  answers._meta = { questionOrder: questions.map(q => q.id) };
 
-  quizSubmitted = true;
-  const user = auth.currentUser;
-  if (user) {
-    db.collection("results").add({
-      uid: user.uid,
-      email: user.email,
-      answers,
-      correctCount,
-      totalMultiple: multipleCount,
-      scorePercent,
-      passed,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
-  }
-  localStorage.removeItem("quizStartTime");
+  db.collection("results").add({
+    uid: auth.currentUser.uid,
+    email: auth.currentUser.email,
+    answers,
+    correctCount: correct,
+    totalMultiple: total,
+    scorePercent: percent,
+    passed,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  });
 
-  const submitBtn = form.querySelector('button[type="submit"]');
-  if (submitBtn) submitBtn.disabled = true;
+  localStorage.removeItem(`quizQuestionOrder_${auth.currentUser.uid}`);
+  localStorage.removeItem(TIMER_KEY);
+
+  showResultsScreen(correct, total, percent, passed);
 }
 
-// --- Εμφάνιση συνολικών αποτελεσμάτων ---
-function showResultsScreen(correctCount, multipleCount, scorePercent, passed) {
+// --- Αποτελέσματα ---
+function showResultsScreen(c, t, p, passed) {
   container.innerHTML = `
-    <div class="result-card" style="text-align:center;background:rgba(255,255,255,0.15);
-    padding:40px;border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,0.3);animation:fadeIn 0.8s ease;">
-      <h2>Αποτελέσματα Ερωτηματολογίου</h2>
-      <p style="font-size:22px;margin-top:20px;">Σωστές απαντήσεις: ${correctCount} / ${multipleCount}</p>
-      <h3 style="font-size:28px;margin-top:10px;">Ποσοστό: <strong>${scorePercent}%</strong></h3>
-      <h2 style="color:${passed ? 'lightgreen' : 'red'};font-size:32px;margin-top:20px;">
-        ${passed ? '✅ Επιτυχία' : '❌ Αποτυχία'}
-      </h2>
-      <button id="view-answers" type="button" class="nav-btn submit" style="margin-top:25px;">
-        📄 Προβολή Αναλυτικών Αποτελεσμάτων
-      </button>
-    </div>
-  `;
-
-  document.getElementById("view-answers").addEventListener("click", showDetailedResults);
+    <div class="question-card" style="text-align:center;">
+      <h2>${passed ? "✅ Επιτυχία" : "❌ Αποτυχία"}</h2>
+      <p>Σωστές: ${c}/${t}</p>
+      <h3>${p}%</h3>
+    </div>`;
 }
 
-// --- Προβολή αναλυτικών απαντήσεων ---
-function showDetailedResults() {
-  container.innerHTML = "<h2 style='text-align:center;margin-bottom:25px;'>Αναλυτικά Αποτελέσματα</h2>";
-
-  questions.forEach(q => {
-    const userAnswer = answers[q.id];
-    const correct = q.correctAnswer || null;
-    const isCorrect = q.type === "multiple" && userAnswer === correct;
-
-    const card = document.createElement("div");
-    card.className = "question-card";
-
-    const qText = document.createElement("div");
-    qText.className = "question-text";
-    qText.textContent = q.text;
-    card.appendChild(qText);
-
-    if (q.type === "open") {
-      card.innerHTML += `<p><strong>Η απάντησή σου:</strong> ${userAnswer || "<em>Δεν απάντησες</em>"}</p>`;
-    } else if (q.type === "scale-stars") {
-      card.innerHTML += `<p><strong>Η βαθμολογία σου:</strong> ${userAnswer ? userAnswer + " ⭐" : "<em>Δεν βαθμολόγησες</em>"}</p>`;
-    } else if (q.type === "multiple") {
-      card.innerHTML += `
-        <p><strong>Η απάντησή σου:</strong> ${userAnswer || "<em>Δεν απάντησες</em>"} ${userAnswer ? (isCorrect ? "✅" : "❌") : ""}</p>
-        ${correct ? `<p><strong>Σωστή απάντηση:</strong> ${correct}</p>` : ""}
-      `;
-    }
-
-    container.appendChild(card);
-  });
-
-  const backBtn = document.createElement("button");
-  backBtn.type = "button";
-  backBtn.textContent = "⬅ Επιστροφή στα αποτελέσματα";
-  backBtn.className = "nav-btn prev";
-  backBtn.style.marginTop = "25px";
-  backBtn.onclick = () => showResultsScreen(
-    questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length,
-    questions.filter(q => q.type === "multiple").length,
-    Math.round(
-      (questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length /
-        questions.filter(q => q.type === "multiple").length) * 100
-    ),
-    Math.round(
-      (questions.filter(q => q.type === "multiple" && answers[q.id] === q.correctAnswer).length /
-        questions.filter(q => q.type === "multiple").length) * 100
-    ) >= 80
-  );
-  container.appendChild(backBtn);
-}
-
-// --- Submit event ---
+// --- Submit ---
 form.addEventListener("submit", e => {
   e.preventDefault();
-  if (quizSubmitted) return; // αποτροπή επανυποβολής
-  if (!confirm("Θέλεις σίγουρα να υποβάλεις τις απαντήσεις σου;")) return;
-  submitQuiz();
+  if (confirm("Θέλεις σίγουρα να υποβάλεις;")) submitQuiz();
 });
