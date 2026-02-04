@@ -7,7 +7,6 @@ const progressBar = document.getElementById("progress");
 
 // --- Ρυθμίσεις ---
 const TIMER_TOTAL = 15 * 60; // 15 λεπτά
-const TIMER_KEY = "quizStartTime";
 
 // --- Timer UI ---
 const timerDisplay = document.createElement("div");
@@ -30,7 +29,7 @@ function shuffleArray(array) {
   }
 }
 
-// --- Έλεγχος σύνδεσης χρήστη ---
+// --- Auth ---
 auth.onAuthStateChanged(async user => {
   if (!user) {
     window.location.href = "index.html";
@@ -99,7 +98,7 @@ async function loadQuestions(hideQuestions = false) {
     }
   });
 
-  // --- ΤΥΧΑΙΑ ΣΕΙΡΑ ΑΝΑ ΧΡΗΣΤΗ (ΜΙΑ ΦΟΡΑ) ---
+  // --- Τυχαία σειρά ανά χρήστη ---
   const savedOrder = localStorage.getItem(ORDER_KEY);
 
   if (savedOrder) {
@@ -116,13 +115,20 @@ async function loadQuestions(hideQuestions = false) {
   if (!hideQuestions) showQuestion(0);
 }
 
-// --- Timer ---
+// --- Timer (ΑΝΑ ΧΡΗΣΤΗ) ---
 function startTimer() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const TIMER_KEY = `quizStartTime_${user.uid}`;
   let startTime = localStorage.getItem(TIMER_KEY);
+
   if (!startTime) {
     startTime = Date.now();
     localStorage.setItem(TIMER_KEY, startTime);
-  } else startTime = parseInt(startTime);
+  } else {
+    startTime = parseInt(startTime);
+  }
 
   timerInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -130,6 +136,8 @@ function startTimer() {
 
     if (remaining <= 0) {
       clearInterval(timerInterval);
+      timerDisplay.textContent = "Χρόνος: 00:00";
+      localStorage.removeItem(TIMER_KEY);
       submitQuiz();
       return;
     }
@@ -250,7 +258,7 @@ function submitQuiz() {
   });
 
   localStorage.removeItem(`quizQuestionOrder_${auth.currentUser.uid}`);
-  localStorage.removeItem(TIMER_KEY);
+  localStorage.removeItem(`quizStartTime_${auth.currentUser.uid}`);
 
   showResultsScreen(correct, total, percent, passed);
 }
