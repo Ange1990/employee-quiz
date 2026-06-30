@@ -92,7 +92,7 @@ async function loadQuestions(hideQuestions = false) {
     const data = doc.data();
     if (
       (data.group === undefined || data.group === null || data.group === userGroup) &&
-      ["open", "scale-stars", "multiple"].includes(data.type)
+      ["open", "scale-stars", "mcq"].includes(data.type)
     ) {
       questions.push({ id: doc.id, ...data });
     }
@@ -235,7 +235,7 @@ function submitQuiz() {
 
   let correct = 0, total = 0;
   questions.forEach(q => {
-    if (q.type === "multiple" && q.correctAnswer) {
+    if (q.type === "mcq" && q.correctAnswer) {
       total++;
       if (answers[q.id] === q.correctAnswer) correct++;
     }
