@@ -82,8 +82,18 @@ async function loadQuestions(hideQuestions = false) {
 
   const ORDER_KEY = `quizQuestionOrder_${user.uid}`;
 
-  const userDoc = await db.collection("users").doc(user.uid).get();
-  console.log("UID:", user.uid);
+const snap = await db.collection("users")
+    .where("email", "==", user.email)
+    .limit(1)
+    .get();
+
+let userGroup = null;
+
+if (!snap.empty) {
+    userGroup = snap.docs[0].data().group;
+}
+
+console.log("User group:", userGroup);  console.log("UID:", user.uid);
 console.log("Exists:", userDoc.exists);
 
 if (userDoc.exists) {
