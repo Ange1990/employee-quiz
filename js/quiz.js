@@ -98,16 +98,30 @@ console.log("User group:", userGroup);
   const snapshot = await db.collection("questions").orderBy("order").get();
   questions = [];
 
-  snapshot.forEach(doc => {
-    const data = doc.data();
-    console.log("Firestore Question:", doc.id, data);
-    if (
-      (data.group === undefined || data.group === null || data.group === userGroup) &&
-      ["open", "scale-stars", "multiple"].includes(data.type)
-    ) {
-      questions.push({ id: doc.id, ...data });
-    }
-  });
+snapshot.forEach(doc => {
+  const data = doc.data();
+
+  const questionGroup =
+    data.group !== undefined && data.group !== null
+      ? Number(data.group)
+      : null;
+
+  console.log(
+    "Question:",
+    doc.id,
+    "type:",
+    data.type,
+    "group:",
+    questionGroup
+  );
+
+  if (
+    (questionGroup === null || questionGroup === userGroup) &&
+    ["open", "scale-stars", "multiple"].includes(data.type)
+  ) {
+    questions.push({ id: doc.id, ...data });
+  }
+});
 
   // --- Τυχαία σειρά ανά χρήστη ---
   const savedOrder = localStorage.getItem(ORDER_KEY);
@@ -124,7 +138,8 @@ console.log("User group:", userGroup);
   }
 
 console.log("User group:", userGroup);
-console.log("Questions loaded:", questions);
+console.log("Questions loaded:", questions.length);
+console.log(questions);
 
 if (!hideQuestions) {
 
