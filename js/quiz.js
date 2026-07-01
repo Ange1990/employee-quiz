@@ -90,6 +90,7 @@ async function loadQuestions(hideQuestions = false) {
 
   snapshot.forEach(doc => {
     const data = doc.data();
+    console.log("Firestore Question:", doc.id, data);
     if (
       (data.group === undefined || data.group === null || data.group === userGroup) &&
       ["open", "scale-stars", "multiple"].includes(data.type)
@@ -112,8 +113,18 @@ async function loadQuestions(hideQuestions = false) {
     );
   }
 
-  if (!hideQuestions) showQuestion(0);
-}
+console.log("User group:", userGroup);
+console.log("Questions loaded:", questions);
+
+if (!hideQuestions) {
+
+  if (questions.length === 0) {
+    container.innerHTML = "<h3 style='color:red;text-align:center;'>Δεν βρέθηκαν ερωτήσεις.</h3>";
+    return;
+  }
+
+  showQuestion(0);
+}}
 
 // --- Timer (ΑΝΑ ΧΡΗΣΤΗ) ---
 function startTimer() {
@@ -150,8 +161,20 @@ function startTimer() {
 
 // --- Εμφάνιση ερώτησης ---
 function showQuestion(index) {
+
+  console.log("showQuestion index:", index);
+  console.log("questions:", questions);
+
   currentIndex = index;
   const q = questions[index];
+
+  console.log("Current Question:", q);
+
+  if (!q) {
+    container.innerHTML = "<h3 style='color:red;text-align:center;'>Η ερώτηση δεν βρέθηκε.</h3>";
+    return;
+  }
+
   container.innerHTML = "";
 
   const card = document.createElement("div");
