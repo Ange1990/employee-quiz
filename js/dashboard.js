@@ -82,6 +82,24 @@ function renderResults(resultsArray) {
 
     const row = document.createElement("tr");
 
+    if(data.assessmentVersion>=2){
+      const row=document.createElement('tr');
+      const emailCell=document.createElement('td');emailCell.textContent=data.email||'';
+      const summary=document.createElement('div');summary.textContent=`Αυτοαξιολόγηση — ${(data.questionSnapshot||[]).length} αντικείμενα`;emailCell.appendChild(summary);
+      const answersCell=document.createElement('td');answersCell.className='answers-cell';
+      (data.questionSnapshot||[]).forEach(q=>{
+        const ans=data.answers?.[q.id]||{};
+        const div=document.createElement('div');div.style.marginBottom='12px';
+        const strong=document.createElement('strong');strong.textContent=(q.section?`${q.section} — `:'')+q.text;
+        const detail=document.createElement('div');detail.textContent=`Απάντηση: ${ans.choice||'—'}`;
+        const comment=document.createElement('div');comment.textContent=`Σχόλια: ${ans.comment||'—'}`;
+        div.append(strong,detail,comment);answersCell.appendChild(div);
+      });
+      const dateCell=document.createElement('td');dateCell.textContent=date;
+      const deleteCell=document.createElement('td');const del=document.createElement('button');del.className='delete-btn';del.textContent='Διαγραφή';
+      del.onclick=()=>{if(confirm('Να διαγραφεί το αποτέλεσμα;'))db.collection('results').doc(docId).delete().then(()=>{row.remove();allResults=allResults.filter(r=>r.id!==docId)}).catch(console.error)};
+      deleteCell.appendChild(del);row.append(emailCell,answersCell,dateCell,deleteCell);resultsBody.appendChild(row);return;
+    }
     let correctCount = 0;
     let totalCount = 0;
 
@@ -155,7 +173,7 @@ exportBtn.addEventListener("click", () => {
     return;
   }
 
-  const headers = ["Email", "Ερώτηση", "Απάντηση", "Σωστή;", "Ημερομηνία", "Σωστές/Σύνολο", "Ποσοστό"];
+  const headers = ["Email", "Ενότητα / Ερώτηση", "Απάντηση", "Σχόλια / Σωστή (παλιό quiz)", "Ημερομηνία", "Σωστές/Σύνολο", "Ποσοστό"];
   const dataRows = [headers];
 
   allResults.forEach(item => {
@@ -165,6 +183,10 @@ exportBtn.addEventListener("click", () => {
       ? `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()} ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,"0")}`
       : "";
 
+    if(data.assessmentVersion>=2){
+      (data.questionSnapshot||[]).forEach(q=>{const a=data.answers?.[q.id]||{};dataRows.push([data.email,(q.section?`${q.section} — `:'')+q.text,a.choice||'',a.comment||'',date,'','']);});
+      dataRows.push([]);return;
+    }
     let correctCount = 0;
     let totalCount = 0;
 

@@ -1,325 +1,57 @@
-// --- Στοιχεία DOM ---
-const container = document.getElementById("questions-container");
-const form = document.getElementById("quiz-form");
-const userEmailSpan = document.getElementById("user-email");
-const logoutBtn = document.getElementById("logout-btn");
-const progressBar = document.getElementById("progress");
-
-// --- Ρυθμίσεις ---
-const TIMER_TOTAL = 15 * 60; // 15 λεπτά
-
-// --- Timer UI ---
-const timerDisplay = document.createElement("div");
-timerDisplay.style.marginBottom = "15px";
-timerDisplay.style.fontWeight = "600";
-form.prepend(timerDisplay);
-
-// --- State ---
-let questions = [];
-let currentIndex = 0;
-let answers = {};
-let timerInterval = null;
-let quizSubmitted = false;
-
-// --- Shuffle ---
-function shuffleArray(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-}
-
-// --- Auth ---
-auth.onAuthStateChanged(async user => {
-  if (!user) {
-    window.location.href = "index.html";
-    return;
-  }
-
-  userEmailSpan.textContent = `Καλώς ήρθες, ${user.email}`;
-  container.innerHTML = "<h3 style='text-align:center;'>Φόρτωση δεδομένων...</h3>";
-
-  try {
-    const resultSnap = await db.collection("results")
-      .where("uid", "==", user.uid)
-      .limit(1)
-      .get();
-
-    if (!resultSnap.empty) {
-      const data = resultSnap.docs[0].data();
-      if (data.scorePercent !== undefined) {
-        quizSubmitted = true;
-        answers = data.answers || {};
-        await loadQuestions(true);
-        showResultsScreen(
-          data.correctCount,
-          data.totalMultiple,
-          data.scorePercent,
-          data.passed
-        );
-        return;
-      }
-    }
-
-    await loadQuestions(false);
-    startTimer();
-
-  } catch (err) {
-    console.error(err);
-    container.innerHTML = "<p style='color:red;text-align:center;'>Σφάλμα φόρτωσης.</p>";
-  }
+const container=document.getElementById('questions-container');
+const form=document.getElementById('quiz-form');
+const progress=document.getElementById('progress');
+const submitButton=form.querySelector('button[type="submit"]');
+let index=0, answers={}, submitted=false, saving=false;
+const questions=ASSESSMENT_QUESTIONS;
+const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+auth.onAuthStateChanged(async user=>{
+ if(!user){location.href='index.html';return;}
+ document.getElementById('user-email').textContent=`Καλώς ήρθες, ${user.email}`;
+ try {
+  const snap=await db.collection('results').where('uid','==',user.uid).get();
+  const existing=snap.docs.find(d=>d.data().assessmentVersion===3);
+  if(existing){submitted=true;answers=existing.data().answers||{};showCompleted();return;}
+  const draft=localStorage.getItem(`assessmentDraftV3_${user.uid}`);
+  if(draft){try{answers=JSON.parse(draft)}catch(e){answers={}}}
+  render();
+ }catch(e){console.error(e);container.textContent='Δεν ήταν δυνατή η φόρτωση. Δοκιμάστε ξανά.';}
 });
-
-// --- Logout ---
-logoutBtn.addEventListener("click", () => {
-  auth.signOut().then(() => window.location.href = "index.html");
-});
-
-// --- Φόρτωση ερωτήσεων ---
-async function loadQuestions(hideQuestions = false) {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const ORDER_KEY = `quizQuestionOrder_${user.uid}`;
-
-const userDoc = await db.collection("users").doc(user.uid).get();
-
-let userGroup = null;
-
-if (userDoc.exists) {
-    userGroup = Number(userDoc.data().group);
+document.getElementById('logout-btn').onclick=()=>auth.signOut().then(()=>location.href='index.html');
+function persist(){const u=auth.currentUser;if(u)localStorage.setItem(`assessmentDraftV3_${u.uid}`,JSON.stringify(answers));}
+function render(){
+ const q=questions[index],a=answers[q.id]||{};
+ container.innerHTML='';
+ const card=document.createElement('div');card.className='question-card';
+ const section=document.createElement('div');section.textContent=q.section;section.style.cssText='font-size:20px;font-weight:700;margin-bottom:12px;padding:10px 14px;background:rgba(0,0,0,.22);border-radius:10px';card.appendChild(section);
+ const h=document.createElement('h3');h.textContent=`Γνωστικό αντικείμενο ${index+1} από ${questions.length}`;h.style.marginBottom='12px';card.appendChild(h);
+ const title=document.createElement('div');title.className='question-text';title.textContent=q.text;card.appendChild(title);
+ ['Γνωρίζω','Δεν γνωρίζω'].forEach(value=>{
+  const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:12px;margin:14px 0;padding:12px;border:1px solid #cbd5e1;border-radius:10px;cursor:pointer;';
+  const radio=document.createElement('input');radio.type='radio';radio.name='assessment-choice';radio.value=value;radio.checked=a.choice===value;
+  radio.onchange=()=>{answers[q.id]={...(answers[q.id]||{}),choice:value};persist();};
+  label.append(radio,document.createTextNode(value));card.appendChild(label);
+ });
+ const commentLabel=document.createElement('label');commentLabel.textContent='Σχόλια (προαιρετικά)';commentLabel.style.display='block';card.appendChild(commentLabel);
+ const textarea=document.createElement('textarea');textarea.placeholder='Προσθέστε σχόλια για αυτή την ερώτηση...';textarea.value=a.comment||'';textarea.rows=4;textarea.style.cssText='width:100%;box-sizing:border-box;padding:12px;margin-top:8px;';
+ textarea.oninput=()=>{answers[q.id]={...(answers[q.id]||{}),comment:textarea.value};persist();};card.appendChild(textarea);
+ const nav=document.createElement('div');nav.style.cssText='display:flex;justify-content:space-between;gap:10px;margin-top:20px;';
+ if(index>0){const prev=document.createElement('button');prev.type='button';prev.textContent='← Προηγούμενη';prev.onclick=()=>{index--;render()};nav.appendChild(prev)}
+ if(index<questions.length-1){const next=document.createElement('button');next.type='button';next.textContent='Επόμενη →';next.onclick=()=>{index++;render()};nav.appendChild(next)}
+ card.appendChild(nav);container.appendChild(card);
+ progress.style.width=`${(index+1)/questions.length*100}%`;
+ submitButton.style.display=index===questions.length-1?'block':'none';
 }
-
-console.log("User email:", user.email);
-console.log("User group:", userGroup);
-  const snapshot = await db.collection("questions").orderBy("order").get();
-  questions = [];
-
-snapshot.forEach(doc => {
-  const data = doc.data();
-
-  const questionGroup =
-    data.group !== undefined && data.group !== null
-      ? Number(data.group)
-      : null;
-
-  console.log(
-    "Question:",
-    doc.id,
-    "type:",
-    data.type,
-    "group:",
-    questionGroup
-  );
-
-  if (
-    (questionGroup === null || questionGroup === userGroup) &&
-    ["open", "scale-stars", "multiple"].includes(data.type)
-  ) {
-    questions.push({ id: doc.id, ...data });
-  }
-});
-
-  // --- Τυχαία σειρά ανά χρήστη ---
-  const savedOrder = localStorage.getItem(ORDER_KEY);
-
-  if (savedOrder) {
-    const order = JSON.parse(savedOrder);
-    questions.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-  } else {
-    shuffleArray(questions);
-    localStorage.setItem(
-      ORDER_KEY,
-      JSON.stringify(questions.map(q => q.id))
-    );
-  }
-
-console.log("User group:", userGroup);
-console.log("Questions loaded:", questions.length);
-console.log(questions);
-
-if (!hideQuestions) {
-
-  if (questions.length === 0) {
-    container.innerHTML = "<h3 style='color:red;text-align:center;'>Δεν βρέθηκαν ερωτήσεις.</h3>";
-    return;
-  }
-
-  showQuestion(0);
-}}
-
-// --- Timer (ΑΝΑ ΧΡΗΣΤΗ) ---
-function startTimer() {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const TIMER_KEY = `quizStartTime_${user.uid}`;
-  let startTime = localStorage.getItem(TIMER_KEY);
-
-  if (!startTime) {
-    startTime = Date.now();
-    localStorage.setItem(TIMER_KEY, startTime);
-  } else {
-    startTime = parseInt(startTime);
-  }
-
-  timerInterval = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - startTime) / 1000);
-    const remaining = TIMER_TOTAL - elapsed;
-
-    if (remaining <= 0) {
-      clearInterval(timerInterval);
-      timerDisplay.textContent = "Χρόνος: 00:00";
-      localStorage.removeItem(TIMER_KEY);
-      submitQuiz();
-      return;
-    }
-
-    const m = Math.floor(remaining / 60);
-    const s = remaining % 60;
-    timerDisplay.textContent = `Χρόνος: ${m}:${String(s).padStart(2, "0")}`;
-  }, 1000);
-}
-
-// --- Εμφάνιση ερώτησης ---
-function showQuestion(index) {
-
-  console.log("showQuestion index:", index);
-  console.log("questions:", questions);
-
-  currentIndex = index;
-  const q = questions[index];
-
-  console.log("Current Question:", q);
-
-  if (!q) {
-    container.innerHTML = "<h3 style='color:red;text-align:center;'>Η ερώτηση δεν βρέθηκε.</h3>";
-    return;
-  }
-
-  container.innerHTML = "";
-
-  const card = document.createElement("div");
-  card.className = "question-card";
-  card.innerHTML = `<div class="question-text">${q.text}</div>`;
-
-  if (q.type === "open") {
-    const t = document.createElement("textarea");
-    t.value = answers[q.id] || "";
-    t.oninput = () => answers[q.id] = t.value;
-    card.appendChild(t);
-  }
-
-  if (q.type === "scale-stars") {
-    const wrap = document.createElement("div");
-    wrap.className = "stars";
-    for (let i = 1; i <= 5; i++) {
-      const s = document.createElement("span");
-      s.textContent = i <= (answers[q.id] || 0) ? "★" : "☆";
-      s.onclick = () => { answers[q.id] = i; showQuestion(currentIndex); };
-      wrap.appendChild(s);
-    }
-    card.appendChild(wrap);
-  }
-
-  if (q.type === "multiple") {
-    q.options.forEach(opt => {
-      const label = document.createElement("label");
-      const input = document.createElement("input");
-      input.type = "radio";
-      input.name = q.id;
-      input.checked = answers[q.id] === opt;
-      input.onchange = () => answers[q.id] = opt;
-      label.appendChild(input);
-      label.append(opt);
-      card.appendChild(label);
-    });
-  }
-
-  container.appendChild(card);
-  renderNavigation();
-  updateProgress();
-}
-
-// --- Navigation ---
-function renderNavigation() {
-  const nav = document.createElement("div");
-  nav.style.display = "flex";
-  nav.style.justifyContent = "space-between";
-  nav.style.marginTop = "25px";
-
-  if (currentIndex > 0) {
-    const prev = document.createElement("button");
-    prev.textContent = "⬅ Προηγούμενο";
-    prev.className = "nav-btn prev";
-    prev.onclick = () => showQuestion(currentIndex - 1);
-    nav.appendChild(prev);
-  }
-
-  if (currentIndex < questions.length - 1) {
-    const next = document.createElement("button");
-    next.textContent = "Επόμενο ➡";
-    next.className = "nav-btn next";
-    next.onclick = () => showQuestion(currentIndex + 1);
-    nav.appendChild(next);
-  }
-
-  container.appendChild(nav);
-}
-
-// --- Progress ---
-function updateProgress() {
-  progressBar.style.width = `${((currentIndex + 1) / questions.length) * 100}%`;
-}
-
-// --- Υποβολή ---
-function submitQuiz() {
-  if (quizSubmitted) return;
-  quizSubmitted = true;
-  clearInterval(timerInterval);
-
-  let correct = 0, total = 0;
-  questions.forEach(q => {
-    if (q.type === "multiple" && q.correctAnswer) {
-      total++;
-      if (answers[q.id] === q.correctAnswer) correct++;
-    }
-  });
-
-  const percent = total ? Math.round((correct / total) * 100) : 0;
-  const passed = percent >= 85;
-
-  answers._meta = { questionOrder: questions.map(q => q.id) };
-
-  db.collection("results").add({
-    uid: auth.currentUser.uid,
-    email: auth.currentUser.email,
-    answers,
-    correctCount: correct,
-    totalMultiple: total,
-    scorePercent: percent,
-    passed,
-    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  });
-
-  localStorage.removeItem(`quizQuestionOrder_${auth.currentUser.uid}`);
-  localStorage.removeItem(`quizStartTime_${auth.currentUser.uid}`);
-
-  showResultsScreen(correct, total, percent, passed);
-}
-
-// --- Αποτελέσματα ---
-function showResultsScreen(c, t, p, passed) {
-  container.innerHTML = `
-    <div class="question-card" style="text-align:center;">
-      <h2>${passed ? "✅ Επιτυχία" : "❌ Αποτυχία"}</h2>
-      <p>Σωστές: ${c}/${t}</p>
-      <h3>${p}%</h3>
-    </div>`;
-}
-
-// --- Submit ---
-form.addEventListener("submit", e => {
-  e.preventDefault();
-  if (confirm("Θέλεις σίγουρα να υποβάλεις;")) submitQuiz();
+function showCompleted(){container.innerHTML='';const card=document.createElement('div');card.className='question-card';card.style.textAlign='center';const h=document.createElement('h2');h.textContent='✅ Το ερωτηματολόγιο υποβλήθηκε';const p=document.createElement('p');p.textContent='Οι απαντήσεις και τα σχόλιά σας έχουν καταχωριστεί.';card.append(h,p);container.appendChild(card);submitButton.style.display='none';progress.style.width='100%';}
+form.addEventListener('submit',async e=>{
+ e.preventDefault();if(submitted||saving)return;
+ const missing=questions.findIndex(q=>!['Γνωρίζω','Δεν γνωρίζω'].includes(answers[q.id]?.choice));
+ if(missing!==-1){alert(`Παρακαλώ απαντήστε στην ερώτηση ${missing+1}.`);index=missing;render();return;}
+ if(!confirm('Θέλετε να υποβάλετε οριστικά τις ${questions.length} απαντήσεις;'))return;
+ saving=true;submitButton.disabled=true;
+ try{const user=auth.currentUser;if(!user)throw Error('Δεν υπάρχει ενεργός χρήστης');
+  await db.collection('results').doc(`assessment-v3-${user.uid}`).set({uid:user.uid,email:user.email,assessmentVersion:3,answers,questionSnapshot:questions,answeredCount:questions.length,timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+  submitted=true;localStorage.removeItem(`assessmentDraftV3_${user.uid}`);showCompleted();
+ }catch(err){console.error(err);alert('Αποτυχία αποθήκευσης. Οι απαντήσεις παραμένουν προσωρινά στη συσκευή. Δοκιμάστε ξανά.');}
+ finally{saving=false;submitButton.disabled=false;}
 });
