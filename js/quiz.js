@@ -3,14 +3,18 @@ const form=document.getElementById('quiz-form');
 const progress=document.getElementById('progress');
 const submitButton=form.querySelector('button[type="submit"]');
 let index=0, answers={}, submitted=false, saving=false;
-const questions=ASSESSMENT_QUESTIONS;
+let questions=[];
 const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 auth.onAuthStateChanged(async user=>{
  if(!user){location.href='index.html';return;}
+ if(isAdmin(user)){location.href='dashboard.html';return;}
  document.getElementById('user-email').textContent=`Καλώς ήρθες, ${user.email}`;
  try {
-  const snap=await db.collection('results').where('uid','==',user.uid).get();
-  const existing=snap.docs.find(d=>d.data().assessmentVersion===3);
+  const questionSnap=await db.collection('questions_v3').orderBy('order').get();
+  questions=questionSnap.docs.map(d=>({id:d.id,...d.data()}));
+  if(!questions.length){container.textContent='Δεν έχουν εισαχθεί ακόμα οι ερωτήσεις. Επικοινωνήστε με τον διαχειριστή.';submitButton.style.display='none';return;}
+  const existingDoc=await db.collection('results_v3').doc(user.uid).get();
+  const existing=existingDoc.exists?existingDoc:null;
   if(existing){submitted=true;answers=existing.data().answers||{};showCompleted();return;}
   const draft=localStorage.getItem(`assessmentDraftV3_${user.uid}`);
   if(draft){try{answers=JSON.parse(draft)}catch(e){answers={}}}
@@ -47,10 +51,10 @@ form.addEventListener('submit',async e=>{
  e.preventDefault();if(submitted||saving)return;
  const missing=questions.findIndex(q=>!['Γνωρίζω','Δεν γνωρίζω'].includes(answers[q.id]?.choice));
  if(missing!==-1){alert(`Παρακαλώ απαντήστε στην ερώτηση ${missing+1}.`);index=missing;render();return;}
- if(!confirm('Θέλετε να υποβάλετε οριστικά τις ${questions.length} απαντήσεις;'))return;
+ if(!confirm(`Θέλετε να υποβάλετε οριστικά τις ${questions.length} απαντήσεις;`))return;
  saving=true;submitButton.disabled=true;
  try{const user=auth.currentUser;if(!user)throw Error('Δεν υπάρχει ενεργός χρήστης');
-  await db.collection('results').doc(`assessment-v3-${user.uid}`).set({uid:user.uid,email:user.email,assessmentVersion:3,answers,questionSnapshot:questions,answeredCount:questions.length,timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+  await db.collection('results_v3').doc(user.uid).set({uid:user.uid,email:user.email,assessmentVersion:3,answers,questionSnapshot:questions,answeredCount:questions.length,timestamp:firebase.firestore.FieldValue.serverTimestamp()});
   submitted=true;localStorage.removeItem(`assessmentDraftV3_${user.uid}`);showCompleted();
  }catch(err){console.error(err);alert('Αποτυχία αποθήκευσης. Οι απαντήσεις παραμένουν προσωρινά στη συσκευή. Δοκιμάστε ξανά.');}
  finally{saving=false;submitButton.disabled=false;}
