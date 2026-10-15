@@ -27,21 +27,20 @@ function render(){
  const q=questions[index],a=answers[q.id]||{};
  container.innerHTML='';
  const card=document.createElement('div');card.className='question-card';
- const section=document.createElement('div');section.textContent=q.section;section.style.cssText='font-size:20px;font-weight:700;margin-bottom:12px;padding:10px 14px;background:rgba(0,0,0,.22);border-radius:10px';card.appendChild(section);
- const h=document.createElement('h3');h.textContent=`Γνωστικό αντικείμενο ${index+1} από ${questions.length}`;h.style.marginBottom='12px';card.appendChild(h);
+ const section=document.createElement('div');section.textContent=q.section;section.className='section-title';card.appendChild(section);
  const title=document.createElement('div');title.className='question-text';title.textContent=q.text;card.appendChild(title);
  ['Γνωρίζω','Δεν γνωρίζω'].forEach(value=>{
-  const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;gap:12px;margin:14px 0;padding:12px;border:1px solid #cbd5e1;border-radius:10px;cursor:pointer;';
+  const label=document.createElement('label');label.className='choice-option';
   const radio=document.createElement('input');radio.type='radio';radio.name='assessment-choice';radio.value=value;radio.checked=a.choice===value;
   radio.onchange=()=>{answers[q.id]={...(answers[q.id]||{}),choice:value};persist();};
   label.append(radio,document.createTextNode(value));card.appendChild(label);
  });
- const commentLabel=document.createElement('label');commentLabel.textContent='Σχόλια (προαιρετικά)';commentLabel.style.display='block';card.appendChild(commentLabel);
- const textarea=document.createElement('textarea');textarea.placeholder='Προσθέστε σχόλια για αυτή την ερώτηση...';textarea.value=a.comment||'';textarea.rows=4;textarea.style.cssText='width:100%;box-sizing:border-box;padding:12px;margin-top:8px;';
+ const commentLabel=document.createElement('label');commentLabel.textContent='Σχόλια (προαιρετικά)';commentLabel.className='comment-label';card.appendChild(commentLabel);
+ const textarea=document.createElement('textarea');textarea.placeholder='Προσθέστε σχόλια για αυτή την ερώτηση...';textarea.value=a.comment||'';textarea.rows=4;
  textarea.oninput=()=>{answers[q.id]={...(answers[q.id]||{}),comment:textarea.value};persist();};card.appendChild(textarea);
- const nav=document.createElement('div');nav.style.cssText='display:flex;justify-content:space-between;gap:10px;margin-top:20px;';
- if(index>0){const prev=document.createElement('button');prev.type='button';prev.textContent='← Προηγούμενη';prev.onclick=()=>{index--;render()};nav.appendChild(prev)}
- if(index<questions.length-1){const next=document.createElement('button');next.type='button';next.textContent='Επόμενη →';next.onclick=()=>{index++;render()};nav.appendChild(next)}
+ const nav=document.createElement('div');nav.className='quiz-nav';
+ if(index>0){const prev=document.createElement('button');prev.type='button';prev.className='nav-btn prev';prev.textContent='← Προηγούμενη';prev.onclick=()=>{index--;render()};nav.appendChild(prev)}
+ if(index<questions.length-1){const next=document.createElement('button');next.type='button';next.className='nav-btn next';next.textContent='Επόμενη →';next.onclick=()=>{index++;render()};nav.appendChild(next)}
  card.appendChild(nav);container.appendChild(card);
  progress.style.width=`${(index+1)/questions.length*100}%`;
  submitButton.style.display=index===questions.length-1?'block':'none';
